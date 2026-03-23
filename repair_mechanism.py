@@ -142,8 +142,8 @@ MALIGN_SEVERITIES = ["High", "Medium", "Low"]
 
 class RepairMechanism:
     def __init__(self, output_dir: str = "output"):
-        self.output_dir          = output_dir
-        self.repair_dir          = os.path.join(output_dir, "repairs")
+        self.output_dir   = output_dir
+        self.repair_dir   = os.path.join(output_dir, "repairs")
 
         # Paths from previous pipeline stages
         self.compilation_results_path  = os.path.join(output_dir, "compilation_results.json")
@@ -197,8 +197,7 @@ class RepairMechanism:
 
     def identify_failed_contracts(self) -> None:
         """
-        Walk through compilation_results.json and collect every contract
-        whose compilation.success == False (and that had a successful generation).
+        Walk through compilation_results.json and collect every contract whose compilation.success == False (and that had a successful generation).
         Populates self.failed_contracts.
         """
         self.failed_contracts = []
@@ -341,8 +340,7 @@ class RepairMechanism:
 
     # ── Ollama API ───────────────────────────────────────────────────────────────
 
-    def _call_ollama(self, model: str, prompt: str,
-                     temperature: float = 0.2,
+    def _call_ollama(self, model: str, prompt: str, temperature: float = 0.2,
                      retry_count: int = 0) -> Dict[str, Any]:
         """POST to local Ollama /api/generate with timeout + retry."""
         url     = "http://localhost:11434/api/generate"
