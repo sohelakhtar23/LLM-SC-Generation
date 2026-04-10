@@ -6,3 +6,7 @@ output(1st_)
 output(2nd_)
 
 .venv/
+venv-wsl/
+temp/
+output-INITIAL4-iteration/*/
+output-NEXT4-iteration/*/

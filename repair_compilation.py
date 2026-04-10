@@ -11,9 +11,6 @@ from typing import Dict, List, Tuple, Any, Optional
 from collections import defaultdict
 from datetime import datetime
 from yaspin import yaspin
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 OLLAMA_TIMEOUT   = 180
@@ -23,7 +20,7 @@ DATASET_PATH     = "prompts_final.csv"
 
 REPAIR_STRATEGIES = ["direct_fix", "chain_of_thought", "role_based"]
 
-# Copied from compile_and_analyze.py – kept in sync intentionally
+# same as compile_and_analyze.py
 VULNERABILITY_SEVERITY = {
     "storage-abiencoderv2-array": "High",
     "arbitrary-from-in-transferfrom": "High",
@@ -140,10 +137,10 @@ MALIGN_SEVERITIES = ["High", "Medium", "Low"]
 # }
 
 
-class RepairMechanism:
+class RepairCompilation:
     def __init__(self, output_dir: str = "output"):
         self.output_dir   = output_dir
-        self.repair_dir   = os.path.join(output_dir, "repairs")
+        self.repair_dir   = os.path.join(output_dir, "compilation_repairs")
 
         # Paths from previous pipeline stages
         self.compilation_results_path  = os.path.join(output_dir, "compilation_results.json")
@@ -197,7 +194,7 @@ class RepairMechanism:
 
     def identify_failed_contracts(self) -> None:
         """
-        Walk through compilation_results.json and collect every contract whose compilation.success == False (and that had a successful generation).
+        Walk through compilation_results.json and collect every contract whose compilation.success == False. 
         Populates self.failed_contracts.
         """
         self.failed_contracts = []
@@ -853,7 +850,7 @@ def main():
     print(" " * 18 + "SMART CONTRACT REPAIR MECHANISM PIPELINE")
     print("=" * 80 + "\n")
 
-    repairer = RepairMechanism(output_dir="output")
+    repairer = RepairCompilation(output_dir="output")
 
     try:
         # Stage 1 – load all prerequisite data

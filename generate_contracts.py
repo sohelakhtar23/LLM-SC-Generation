@@ -11,7 +11,7 @@ from yaspin import yaspin
 from datetime import datetime
 
 # Configuration
-NUM_ITERATIONS = 2
+NUM_ITERATIONS = 4
 # MODELS = [
 #     "llama3.2:1b",
 #     # "gemma3:1b",

@@ -10,3 +10,5 @@ solc-select
 
 # web3
 # py-solc-x
+
+# mythril --> on Docker, for Windows
