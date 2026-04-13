@@ -143,7 +143,7 @@ class RepairCompilation:
         self.repair_dir   = os.path.join(output_dir, "compilation_repairs")
 
         # Paths from previous pipeline stages
-        self.compilation_results_path  = os.path.join(output_dir, "compilation_results.json")
+        self.compilation_results_path  = os.path.join(output_dir, "compilation_results_only_midsize.json")
         self.generation_summary_path   = os.path.join(output_dir, "generation_summary.json")
 
         # Loaded data
@@ -275,16 +275,10 @@ class RepairCompilation:
                 f"The following Solidity smart contract failed to compile.\n"
                 f"Fix ALL compilation errors and return the corrected, complete contract.\n\n"
                 f"TASK: {prompt_name}\n"
-                f"SPECIFICATION: {specification}\n\n"
-                f"FAULTY CONTRACT:\n"
-                f"```solidity\n{faulty_code}\n```\n\n"
-                f"COMPILATION ERRORS:\n"
-                f"{compile_error}\n\n"
-                f"OUTPUT FORMAT:\n"
-                f"- Provide ONLY the corrected Solidity code\n"
-                f"- NO explanations, NO markdown formatting outside code blocks\n"
-                f"- Ensure the contract fully matches the original specification\n"
-                f"- Start with the SPDX license or pragma statement\n"
+                f"COMPILATION ERRORS:\n{compile_error}\n\n"
+                f"FAULTY CONTRACT:\n```solidity\n{faulty_code}\n```\n\n"
+                f"Return corrected Solidity code only. No explanation. No markdown fences.\n"
+                f"Start your response with: // SPDX-License-Identifier: MIT\n"  
             )
 
         elif strategy == "chain_of_thought":
@@ -292,20 +286,10 @@ class RepairCompilation:
                 f"A Solidity smart contract failed to compile. "
                 f"Work through each error methodically before writing the fix.\n\n"
                 f"TASK: {prompt_name}\n"
-                f"SPECIFICATION: {specification}\n\n"
-                f"FAULTY CONTRACT:\n"
-                f"```solidity\n{faulty_code}\n```\n\n"
-                f"COMPILATION ERRORS:\n"
-                f"{compile_error}\n\n"
-                f"INSTRUCTIONS – follow these steps in order:\n"
-                f"Step 1. List each compilation error and identify its root cause.\n"
-                f"Step 2. For each error, describe the exact code change required.\n"
-                f"Step 3. Verify the planned changes satisfy the original specification.\n"
-                f"Step 4. Output the complete corrected Solidity contract.\n\n"
-                f"OUTPUT FORMAT:\n"
-                f"- After your reasoning, wrap the final contract in ```solidity ... ``` fences\n"
-                f"- The contract must be complete – no placeholders or partial code\n"
-                f"- Start the contract with the SPDX license or pragma statement\n"
+                f"COMPILATION ERRORS:\n{compile_error}\n\n"
+                f"FAULTY CONTRACT:\n```solidity\n{faulty_code}\n```\n\n"
+                f"Return corrected Solidity code only. No explanation. No markdown fences.\n"
+                f"Start your response with: // SPDX-License-Identifier: MIT\n" 
             )
 
         elif strategy == "role_based":
@@ -316,20 +300,10 @@ class RepairCompilation:
                 f"Your job is to produce a corrected, production-ready version that compiles "
                 f"cleanly and faithfully implements the original specification.\n\n"
                 f"TASK: {prompt_name}\n"
-                f"SPECIFICATION: {specification}\n\n"
-                f"SUBMITTED CONTRACT (FAULTY):\n"
-                f"```solidity\n{faulty_code}\n```\n\n"
-                f"COMPILER FEEDBACK:\n"
-                f"{compile_error}\n\n"
-                f"REQUIREMENTS:\n"
-                f"- Resolve every compiler error – the contract MUST compile with solc ^0.8.x\n"
-                f"- Preserve all intended functionality described in the specification\n"
-                f"- Apply Solidity security best practices (reentrancy guards, access control, etc.)\n"
-                f"- Optimise for gas where possible without sacrificing correctness\n\n"
-                f"OUTPUT FORMAT:\n"
-                f"- Return ONLY the corrected Solidity code inside ```solidity ... ``` fences\n"
-                f"- No prose outside the code block\n"
-                f"- Start with the SPDX license or pragma statement\n"
+                f"COMPILATION ERRORS:\n{compile_error}\n\n"
+                f"FAULTY CONTRACT:\n```solidity\n{faulty_code}\n```\n\n"
+                f"Return corrected Solidity code only. No explanation. No markdown fences.\n"
+                f"Start your response with: // SPDX-License-Identifier: MIT\n" 
             )
 
         else:

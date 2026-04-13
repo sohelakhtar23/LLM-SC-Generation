@@ -8,5 +8,8 @@ output(2nd_)
 .venv/
 venv-wsl/
 temp/
-output-INITIAL4-iteration/*/
-output-NEXT4-iteration/*/
+
+myth-files/
+RESULTS-archiv/
+# output-NEXT4-iteration/*/
+output/
