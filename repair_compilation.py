@@ -6,8 +6,7 @@ import time
 import traceback
 import requests
 import pandas as pd
-import shutil
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Any, Optional
 from collections import defaultdict
 from datetime import datetime
 from yaspin import yaspin
@@ -19,6 +18,7 @@ REQUEST_TIMEOUT  = 180
 DATASET_PATH     = "prompts_final.csv"
 
 REPAIR_STRATEGIES = ["direct_fix", "chain_of_thought", "role_based"]
+MAX_REPAIR_TRIES  = 2   # max re-prompts when repaired contract still fails to compile
 
 # same as compile_and_analyze.py
 VULNERABILITY_SEVERITY = {
@@ -266,46 +266,188 @@ class RepairCompilation:
 
     # ── Prompt builders ─────────────────────────────────────────────────────────
 
-    def _build_prompt(self, strategy: str, prompt_name: str, specification: str,
-                      faulty_code: str, compile_error: str) -> str:
-        """Return a repair prompt for the given strategy."""
+    def _build_retry_prompt(
+        self,
+        strategy: str,
+        prompt_name: str,
+        specification: str,
+        original_faulty_code: str,
+        original_compile_error: str,
+        failed_code: str,
+        new_compile_error: str,
+        retry_num: int = 1,
+    ) -> str:
+        """Build a complete, self-contained retry prompt for a contract that
+        still failed to compile after a previous repair attempt.
 
+        The prompt explicitly tells the model:
+          - what the original contract and its compilation errors were
+          - what code it produced in the previous attempt
+          - what new compilation errors that code introduced
+          - that it must produce a contract that compiles cleanly
+
+        Args:
+            strategy:               One of REPAIR_STRATEGIES.
+            prompt_name:            Short task identifier.
+            specification:          Natural-language contract specification.
+            original_faulty_code:   The original contract that first failed.
+            original_compile_error: Compiler errors from the original contract.
+            failed_code:            Contract produced by the previous LLM attempt.
+            new_compile_error:      Compiler errors from that previous attempt.
+            retry_num:              1-based retry attempt number (used in prompt text).
+        """
+        if strategy == "direct_fix":
+            return (
+                f"You were trying to fix compilation errors in a Solidity smart contract.\n"
+                f"The code you produced (attempt {retry_num}) still failed to compile. "
+                f"Fix ALL compilation errors and return a corrected, complete contract.\n\n"
+                f"TASK: {prompt_name}\n"
+                f"SPECIFICATION: {specification}\n\n"
+                f"ORIGINAL FAULTY CONTRACT:\n"
+                f"```solidity\n{original_faulty_code}\n```\n\n"
+                f"ORIGINAL COMPILATION ERRORS:\n{original_compile_error}\n\n"
+                f"YOUR PREVIOUS (STILL NON-COMPILING) ATTEMPT:\n"
+                f"```solidity\n{failed_code}\n```\n\n"
+                f"NEW COMPILATION ERRORS IN YOUR PREVIOUS ATTEMPT:\n{new_compile_error}\n\n"
+                f"Fix ALL errors shown above so the contract compiles successfully.\n\n"
+                f"OUTPUT FORMAT:\n"
+                f"- Provide the complete correct Solidity code\n"
+                f"- No explanations, No markdown formatting outside code blocks\n"
+                f"- Ensure the contract matches the given specification\n"
+                f"- Use Solidity ^0.8.x\n"
+            )
+
+        elif strategy == "chain_of_thought":
+            return (
+                f"You were trying to fix compilation errors in a Solidity smart contract. "
+                f"The code you produced (attempt {retry_num}) still failed to compile. "
+                f"Work through the new errors methodically before writing the fix.\n\n"
+                f"TASK: {prompt_name}\n"
+                f"SPECIFICATION: {specification}\n\n"
+                f"ORIGINAL FAULTY CONTRACT:\n"
+                f"```solidity\n{original_faulty_code}\n```\n\n"
+                f"ORIGINAL COMPILATION ERRORS:\n{original_compile_error}\n\n"
+                f"YOUR PREVIOUS (STILL NON-COMPILING) ATTEMPT:\n"
+                f"```solidity\n{failed_code}\n```\n\n"
+                f"NEW COMPILATION ERRORS IN YOUR PREVIOUS ATTEMPT:\n{new_compile_error}\n\n"
+                f"INSTRUCTIONS - follow these steps in order:\n"
+                f"Step 1. For each new compilation error, identify its root cause and "
+                f"exactly where it appears in your previous attempt - plain text only, "
+                f"no code fences in this step.\n"
+                f"Step 2. Describe the precise fix for each error in plain text - "
+                f"no code fences in this step.\n"
+                f"Step 3. Output the complete corrected Solidity contract that compiles "
+                f"cleanly and matches the specification.\n\n"
+                f"OUTPUT FORMAT:\n"
+                f"- Steps 1 and 2 must use plain text only - no code fences of any kind\n"
+                f"- Wrap the final contract in ```solidity ... ``` fences\n"
+                f"- The contract must be complete - no placeholders or partial code\n"
+                f"- Use Solidity ^0.8.x\n"
+            )
+
+        elif strategy == "role_based":
+            return (
+                f"You are a senior Solidity security engineer with 10+ years of experience "
+                f"auditing and fixing production smart contracts on Ethereum mainnet.\n"
+                f"You were tasked with fixing a contract that failed to compile. "
+                f"The contract you produced (attempt {retry_num}) still does not compile. "
+                f"Deliver a version that compiles cleanly and implements the specification.\n\n"
+                f"TASK: {prompt_name}\n"
+                f"SPECIFICATION: {specification}\n\n"
+                f"ORIGINAL FAULTY CONTRACT:\n"
+                f"```solidity\n{original_faulty_code}\n```\n\n"
+                f"ORIGINAL COMPILATION ERRORS:\n{original_compile_error}\n\n"
+                f"YOUR PREVIOUS (STILL NON-COMPILING) ATTEMPT:\n"
+                f"```solidity\n{failed_code}\n```\n\n"
+                f"NEW COMPILATION ERRORS IN YOUR PREVIOUS ATTEMPT:\n{new_compile_error}\n\n"
+                f"INSTRUCTION:\n"
+                f"- Resolve every compiler error shown above\n"
+                f"- Do not introduce new errors while fixing existing ones\n"
+                f"- Apply Solidity security best practices\n"
+                f"OUTPUT FORMAT:\n"
+                f"- Return ONLY the corrected Solidity code inside ```solidity ... ``` fences\n"
+                f"- Use Solidity ^0.8.x\n"
+            )
+
+        else:
+            raise ValueError(f"Unknown repair strategy: {strategy}")
+
+    def _build_prompt(self, strategy: str, prompt_name: str, specification: str,
+                      faulty_code: str, compile_error: str,
+                      retry_context: Optional[Dict] = None) -> str:
+        """Return a repair prompt for the given strategy.
+
+        On the first attempt ``retry_context`` is ``None`` and the standard
+        strategy prompt is returned.  On subsequent attempts pass a
+        ``retry_context`` dict and this method delegates entirely to
+        :meth:`_build_retry_prompt`, returning a fresh, self-contained prompt
+        that explicitly references what the previous attempt produced and why
+        it still failed to compile.
+
+        ``retry_context`` keys
+        ----------------------
+        failed_code       : contract text from the previous LLM attempt
+        new_compile_error : compiler stderr from that attempt
+        retry_num         : 1-based attempt counter
+
+        Args:
+            strategy:       One of REPAIR_STRATEGIES.
+            prompt_name:    Short task identifier.
+            specification:  Natural-language contract specification.
+            faulty_code:    The *original* contract that first failed to compile.
+            compile_error:  Compiler errors from the *original* contract.
+            retry_context:  When present, a full retry prompt is returned
+                            instead of the standard base prompt.
+        """
+        # ── Retry path: delegate entirely to _build_retry_prompt ──────────────
+        if retry_context is not None:
+            return self._build_retry_prompt(
+                strategy               = strategy,
+                prompt_name            = prompt_name,
+                specification          = specification,
+                original_faulty_code   = faulty_code,
+                original_compile_error = compile_error,
+                failed_code            = retry_context["failed_code"],
+                new_compile_error      = retry_context["new_compile_error"],
+                retry_num              = retry_context.get("retry_num", 1),
+            )
+
+        # ── First-attempt path (original logic) ───────────────────────────────
         if strategy == "direct_fix":
             return (
                 f"The following Solidity smart contract failed to compile.\n"
                 f"Fix ALL compilation errors and return the corrected, complete contract.\n\n"
                 f"TASK: {prompt_name}\n"
                 f"SPECIFICATION: {specification}\n\n"
-                f"FAULTY CONTRACT:\n"
-                f"```solidity\n{faulty_code}\n```\n\n"
-                f"COMPILATION ERRORS:\n"
-                f"{compile_error}\n\n"
+                f"FAULTY CONTRACT:\n```solidity\n{faulty_code}\n```\n\n"
+                f"COMPILATION ERRORS:\n{compile_error}\n\n"
                 f"OUTPUT FORMAT:\n"
-                f"- Provide ONLY the corrected Solidity code\n"
-                f"- NO explanations, NO markdown formatting outside code blocks\n"
-                f"- Ensure the contract fully matches the original specification\n"
-                f"- Start with the SPDX license or pragma statement\n"
+                f"- Provide the complete correct Solidity code\n"
+                f"- No explanations, No markdown formatting outside code blocks\n"
+                f"- Ensure the contract matches the given specification\n"
+                f"- Use Solidity ^0.8.x\n"
             )
 
         elif strategy == "chain_of_thought":
             return (
                 f"A Solidity smart contract failed to compile. "
-                f"Work through each error methodically before writing the fix.\n\n"
+                f"Go through each error before writing the fix.\n\n"
                 f"TASK: {prompt_name}\n"
                 f"SPECIFICATION: {specification}\n\n"
-                f"FAULTY CONTRACT:\n"
-                f"```solidity\n{faulty_code}\n```\n\n"
-                f"COMPILATION ERRORS:\n"
-                f"{compile_error}\n\n"
-                f"INSTRUCTIONS – follow these steps in order:\n"
-                f"Step 1. List each compilation error and identify its root cause.\n"
-                f"Step 2. For each error, describe the exact code change required.\n"
-                f"Step 3. Verify the planned changes satisfy the original specification.\n"
-                f"Step 4. Output the complete corrected Solidity contract.\n\n"
+                f"FAULTY CONTRACT:\n```solidity\n{faulty_code}\n```\n\n"
+                f"COMPILATION ERRORS:\n{compile_error}\n\n"
+                f"INSTRUCTIONS - follow these steps in order:\n"
+                f"Step 1. For each compilation error, identify the code location and its root cause. "
+                f"Reference code by line numbers or function names in plain text - "
+                f"do NOT use code fences in this step.\n"
+                f"Step 2. Describe the exact code changes needed to fix each error in plain text - "
+                f"do NOT use code fences in this step.\n"
+                f"Step 3. Output the complete corrected Solidity contract.\n\n"
                 f"OUTPUT FORMAT:\n"
-                f"- After your reasoning, wrap the final contract in ```solidity ... ``` fences\n"
-                f"- The contract must be complete – no placeholders or partial code\n"
-                f"- Start the contract with the SPDX license or pragma statement\n"
+                f"- Steps 1 and 2 must use plain text only - no code fences of any kind\n"
+                f"- Wrap the final contract in ```solidity ... ``` fences\n"
+                f"- The contract must be complete - no placeholders or partial code\n"
+                f"- Use Solidity ^0.8.x\n"
             )
 
         elif strategy == "role_based":
@@ -314,22 +456,19 @@ class RepairCompilation:
                 f"auditing and fixing production smart contracts on Ethereum mainnet.\n"
                 f"A junior developer submitted the contract below and the compiler rejected it. "
                 f"Your job is to produce a corrected, production-ready version that compiles "
-                f"cleanly and faithfully implements the original specification.\n\n"
+                f"cleanly and implements the original specification.\n\n"
                 f"TASK: {prompt_name}\n"
                 f"SPECIFICATION: {specification}\n\n"
                 f"SUBMITTED CONTRACT (FAULTY):\n"
                 f"```solidity\n{faulty_code}\n```\n\n"
                 f"COMPILER FEEDBACK:\n"
                 f"{compile_error}\n\n"
-                f"REQUIREMENTS:\n"
-                f"- Resolve every compiler error – the contract MUST compile with solc ^0.8.x\n"
-                f"- Preserve all intended functionality described in the specification\n"
-                f"- Apply Solidity security best practices (reentrancy guards, access control, etc.)\n"
-                f"- Optimise for gas where possible without sacrificing correctness\n\n"
+                f"INSTRUCTION:\n"
+                f"- Resolve every compiler error \n"
+                f"- Apply Solidity security best practices\n"
                 f"OUTPUT FORMAT:\n"
                 f"- Return ONLY the corrected Solidity code inside ```solidity ... ``` fences\n"
-                f"- No prose outside the code block\n"
-                f"- Start with the SPDX license or pragma statement\n"
+                f"- Use Solidity ^0.8.x\n"
             )
 
         else:
@@ -549,54 +688,108 @@ class RepairCompilation:
                         step_start = time.time()
 
                         try:
-                            # ── 1. Build prompt ────────────────────────────
+                            # ── Helper: call LLM, extract code, save files ────
+                            def _llm_and_save(prompt_text: str,
+                                              sol_filename: str,
+                                              txt_filename: str) -> str:
+                                """Call Ollama, extract Solidity, persist artefacts.
+                                Accumulates llm_seconds in strategy_result["timing"].
+                                Returns the path to the saved .sol file."""
+                                llm_start   = time.time()
+                                api_resp    = self._call_ollama(model_name, prompt_text)
+                                strategy_result["timing"]["llm_seconds"] = round(
+                                    strategy_result["timing"].get("llm_seconds", 0)
+                                    + (time.time() - llm_start), 2
+                                )
+                                raw_resp = api_resp.get("response", "")
+                                strategy_result["response"] = raw_resp
+
+                                txt_path = os.path.join(contract_repair_dir, txt_filename)
+                                with open(txt_path, 'w', encoding='utf-8') as f:
+                                    f.write(raw_resp)
+
+                                code     = self._extract_solidity(raw_resp)
+                                s_path   = os.path.join(contract_repair_dir, sol_filename)
+                                with open(s_path, 'w', encoding='utf-8') as f:
+                                    f.write(code)
+                                strategy_result["repaired_sol_path"] = s_path
+                                return s_path
+
+                            # ── Attempt 0: initial repair ─────────────────────
                             repair_prompt = self._build_prompt(
                                 strategy,
                                 prompt_name,
                                 fc["specification"],
                                 fc["faulty_code"],
-                                fc["compile_error"]
+                                fc["compile_error"],
+                            )
+                            current_sol = _llm_and_save(
+                                repair_prompt,
+                                f"{iteration_num}_{strategy}.sol",
+                                f"{iteration_num}_{strategy}.txt",
                             )
 
-                            # ── 2. Call LLM ───────────────────────────────
-                            llm_start = time.time()
-                            api_resp  = self._call_ollama(model_name, repair_prompt)
-                            llm_time  = round(time.time() - llm_start, 2)
-
-                            raw_response = api_resp.get("response", "")
-                            strategy_result["response"] = raw_response
-                            strategy_result["timing"]["llm_seconds"] = llm_time
-
-                            # ── 3. Save raw .txt response ─────────────────
-                            txt_path = os.path.join(
-                                contract_repair_dir,
-                                f"{iteration_num}_{strategy}.txt"
-                            )
-                            with open(txt_path, 'w', encoding='utf-8') as f:
-                                f.write(raw_response)
-
-                            # ── 4. Extract & save .sol ────────────────────
-                            repaired_code = self._extract_solidity(raw_response)
-                            sol_path = os.path.join(
-                                contract_repair_dir,
-                                f"{iteration_num}_{strategy}.sol"
-                            )
-                            with open(sol_path, 'w', encoding='utf-8') as f:
-                                f.write(repaired_code)
-                            strategy_result["repaired_sol_path"] = sol_path
-
-                            # ── 5. Compile ────────────────────────────────
-                            comp_start = time.time()
-                            compilation = self._compile(sol_path)
+                            comp_start  = time.time()
+                            compilation = self._compile(current_sol)
                             strategy_result["compilation"] = compilation
                             strategy_result["timing"]["compilation_seconds"] = round(
                                 time.time() - comp_start, 2
                             )
 
-                            # ── 6. Slither (only if compiled) ─────────────
+                            # ── Retry loop (up to MAX_REPAIR_TRIES) ───────────
+                            strategy_result.setdefault("retry_attempts", [])
+                            for retry_num in range(1, MAX_REPAIR_TRIES + 1):
+                                if compilation["success"]:
+                                    break   # compiled — no retry needed
+
+                                spinner.text = (
+                                    f"[{fc_idx}/{len(model_contracts)}] "
+                                    f"{prompt_name} | {iteration_key} | {strategy} "
+                                    f"retry {retry_num}/{MAX_REPAIR_TRIES}"
+                                )
+
+                                retry_context = {
+                                    "failed_code":      self._extract_solidity(
+                                        strategy_result["response"]),
+                                    "new_compile_error": compilation.get("stderr", ""),
+                                    "retry_num":         retry_num,
+                                }
+                                retry_prompt = self._build_prompt(
+                                    strategy,
+                                    prompt_name,
+                                    fc["specification"],
+                                    fc["faulty_code"],
+                                    fc["compile_error"],
+                                    retry_context=retry_context,
+                                )
+                                current_sol = _llm_and_save(
+                                    retry_prompt,
+                                    f"{iteration_num}_{strategy}_retry{retry_num}.sol",
+                                    f"{iteration_num}_{strategy}_retry{retry_num}.txt",
+                                )
+
+                                comp_start  = time.time()
+                                compilation = self._compile(current_sol)
+                                strategy_result["compilation"] = compilation
+                                strategy_result["timing"]["compilation_seconds"] = round(
+                                    strategy_result["timing"].get(
+                                        "compilation_seconds", 0)
+                                    + (time.time() - comp_start), 2
+                                )
+                                strategy_result["retry_attempts"].append({
+                                    "attempt":      retry_num,
+                                    "compiled":     compilation["success"],
+                                })
+
+                            # ── Slither (only if final compile succeeded) ─────
+                            n_retries    = len(strategy_result["retry_attempts"])
+                            retry_label  = (
+                                f" +{n_retries} retr{'y' if n_retries == 1 else 'ies'}"
+                                if n_retries else ""
+                            )
                             if compilation["success"]:
                                 slither_start = time.time()
-                                slither = self._run_slither(sol_path)
+                                slither = self._run_slither(current_sol)
                                 strategy_result["slither"] = slither
                                 strategy_result["timing"]["slither_seconds"] = round(
                                     time.time() - slither_start, 2
@@ -606,7 +799,9 @@ class RepairCompilation:
                                 status_icon = "✗"
 
                         except Exception as e:
-                            strategy_result["error"] = str(e)
+                            compilation   = {}
+                            retry_label   = ""
+                            strategy_result["error"]     = str(e)
                             strategy_result["traceback"] = traceback.format_exc()
                             status_icon = "✗"
 
@@ -621,6 +816,7 @@ class RepairCompilation:
                             f"{prompt_name} | {iteration_key} | {strategy:16} | "
                             f"compiled={'YES' if comp_ok else 'NO':3} | "
                             f"{strategy_result['timing']['total_seconds']:.1f}s"
+                            f"{retry_label}"
                         )
 
                     self.repair_results[model_name][prompt_name][iteration_key] = contract_result
@@ -762,7 +958,7 @@ class RepairCompilation:
         with open(report_path, 'w', encoding='utf-8') as f:
 
             f.write("=" * 80 + "\n")
-            f.write(" " * 22 + "REPAIR MECHANISM – ANALYSIS REPORT\n")
+            f.write(" " * 22 + "COMPILATION REPAIR – ANALYSIS REPORT\n")
             f.write("=" * 80 + "\n")
             f.write(f"Generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Strategies: {', '.join(REPAIR_STRATEGIES)}\n\n")
@@ -823,7 +1019,7 @@ class RepairCompilation:
 
         # ── Quick console summary ────────────────────────────────────────────────
         print("\n" + "=" * 80)
-        print(" " * 25 + "REPAIR QUICK SUMMARY")
+        print(" " * 25 + "COMPILATION REPAIR QUICK SUMMARY")
         print("=" * 80)
         for model_name, model_stats in self.repair_summary.items():
             print(f"\n[{model_name}]")
@@ -862,6 +1058,8 @@ def main():
         if not repairer.failed_contracts:
             print("[INFO] No failed contracts found – nothing to repair. Exiting.")
             return
+        # print Timestamp
+        print(f"[INFO] Pipeline started at: {datetime.now().isoformat()}\n")
 
         # Stage 3 – repair loop (LLM call → save → compile → Slither)
         repairer.repair_all()
@@ -876,22 +1074,24 @@ def main():
         repairer.generate_report()
 
         print("=" * 80)
-        print("[SUCCESS] Repair mechanism pipeline complete!")
+        print("[SUCCESS] Compilation repair pipeline complete!")
         print(f"          Results in: output/repair_cp_results.json")
         print(f"          Summary in: output/repair_cp_summary.json")
         print(f"          Report  in: output/repair_cp_report.txt")
         print(f"          Repaired .sol files in: output/compilation_repairs/")
         print("=" * 80)
+        # print Timestamp
+        print(f"\n[INFO] Pipeline completed at: {datetime.now().isoformat()}")
 
     except FileNotFoundError as e:
         print(f"\n[ERROR] {e}")
     except KeyboardInterrupt:
-        print("\n\n[INTERRUPTED] Repair stopped by user.")
+        print("\n\n[INTERRUPTED] Compilation repair stopped by user.")
         if repairer.repair_results:
             print("[INFO] Saving partial results...")
             repairer.save_results()
     except Exception as e:
-        print(f"\n[ERROR] Repair pipeline failed: {e}")
+        print(f"\n[ERROR] Compilation repair pipeline failed: {e}")
         traceback.print_exc()
 
 
