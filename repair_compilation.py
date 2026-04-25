@@ -10,6 +10,7 @@ from typing import Dict, List, Any, Optional
 from collections import defaultdict
 from datetime import datetime
 from yaspin import yaspin
+from constant import VULNERABILITY_SEVERITY_MAPPING
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 OLLAMA_TIMEOUT   = 180
@@ -19,103 +20,6 @@ DATASET_PATH     = "prompts_final.csv"
 
 REPAIR_STRATEGIES = ["direct_fix", "chain_of_thought", "role_based"]
 MAX_REPAIR_TRIES  = 2   # max re-prompts when repaired contract still fails to compile
-
-# same as compile_and_analyze.py
-VULNERABILITY_SEVERITY = {
-    "storage-abiencoderv2-array": "High",
-    "arbitrary-from-in-transferfrom": "High",
-    "modifying-storage-array-by-value": "High",
-    "abi-encodePacked-collision": "High",
-    "incorrect-shift-in-assembly": "High",
-    "multiple-constructor-schemes": "High",
-    "name-reused": "High",
-    "protected-variables": "High",
-    "public-mappings-with-nested-variables": "High",
-    "right-to-left-override-character": "High",
-    "state-variable-shadowing": "High",
-    "suicidal": "High",
-    "uninitialized-state-variables": "High",
-    "uninitialized-storage-variables": "High",
-    "unprotected-upgradeable-contract": "High",
-    "codex": "High",
-    "arbitrary-from-in-transferfrom-used-with-permit": "High",
-    "functions-that-send-ether-to-arbitrary-destinations": "High",
-    "array-length-assignment": "High",
-    "controlled-delegatecall": "High",
-    "payable-functions-using-delegatecall-inside-a-loop": "High",
-    "incorrect-exponentiation": "High",
-    "incorrect-return-in-assembly": "High",
-    "msgvalue-inside-a-loop": "High",
-    "reentrancy-vulnerabilities": "High",
-    "return-instead-of-leave-in-assembly": "High",
-    "storage-signed-integer-array": "High",
-    "unchecked-transfer": "High",
-    "weak-PRNG": "High",
-    "domain-separator-collision": "Medium",
-    "dangerous-enum-conversion": "Medium",
-    "incorrect-erc20-interface": "Medium",
-    "incorrect-erc721-interface": "Medium",
-    "dangerous-strict-equalities": "Medium",
-    "contracts-that-lock-ether": "Medium",
-    "deletion-on-mapping-containing-a-structure": "Medium",
-    "state-variable-shadowing-from-abstract-contracts": "Medium",
-    "tautological-compare": "Medium",
-    "tautology-or-contradiction": "Medium",
-    "write-after-write": "Medium",
-    "misuse-of-a-boolean-constant": "Medium",
-    "constant-functions-using-assembly-code": "Medium",
-    "constant-functions-changing-the-state": "Medium",
-    "divide-before-multiply": "Medium",
-    "out-of-order-retryable-transactions": "Medium",
-    "reentrancy-vulnerabilities-1": "Medium",
-    "reused-base-constructors": "Medium",
-    "dangerous-usage-of-txorigin": "Medium",
-    "unchecked-low-level-calls": "Medium",
-    "unchecked-send": "Medium",
-    "uninitialized-local-variables": "Medium",
-    "unused-return": "Medium",
-    "incorrect-modifier": "Low",
-    "builtin-symbol-shadowing": "Low",
-    "local-variable-shadowing": "Low",
-    "uninitialized-function-pointers-in-constructors": "Low",
-    "pre-declaration-usage-of-local-variables": "Low",
-    "void-constructor": "Low",
-    "calls-inside-a-loop": "Low",
-    "missing-events-access-control": "Low",
-    "missing-events-arithmetic": "Low",
-    "dangerous-unary-expressions": "Low",
-    "missing-zero-address-validation": "Low",
-    "reentrancy-vulnerabilities-2": "Low",
-    "reentrancy-vulnerabilities-3": "Low",
-    "return-bomb": "Low",
-    "block-timestamp": "Low",
-    "assembly-usage": "Informational",
-    "assert-state-change": "Informational",
-    "boolean-equality": "Informational",
-    "cyclomatic-complexity": "Informational",
-    "deprecated-standards": "Informational",
-    "unindexed-erc20-event-parameters": "Informational",
-    "function-initializing-state": "Informational",
-    "incorrect-using-for-usage": "Informational",
-    "low-level-calls": "Informational",
-    "missing-inheritance": "Informational",
-    "conformance-to-solidity-naming-conventions": "Informational",
-    "different-pragma-directives-are-used": "Informational",
-    "redundant-statements": "Informational",
-    "incorrect-versions-of-solidity": "Informational",
-    "unimplemented-functions": "Informational",
-    "unused-imports": "Informational",
-    "unused-state-variable": "Informational",
-    "costly-operations-inside-a-loop": "Informational",
-    "dead-code": "Informational",
-    "reentrancy-vulnerabilities-4": "Informational",
-    "too-many-digits": "Informational",
-    "cache-array-length": "Optimization",
-    "state-variables-that-could-be-declared-constant": "Optimization",
-    "public-function-that-could-be-declared-external": "Optimization",
-    "state-variables-that-could-be-declared-immutable": "Optimization",
-    "public-variable-read-in-external-context": "Optimization",
-}
 
 SEVERITY_ORDER   = ["High", "Medium", "Low", "Informational", "Optimization"]
 MALIGN_SEVERITIES = ["High", "Medium", "Low"]
@@ -597,7 +501,7 @@ class RepairCompilation:
 
     def _has_only_benign_vulns(self, vulns: List[str]) -> bool:
         for v in vulns:
-            if VULNERABILITY_SEVERITY.get(v, "Unknown") not in ["Optimization", "Informational"]:
+            if VULNERABILITY_SEVERITY_MAPPING.get(v, "Unknown") not in ["Optimization", "Informational"]:
                 return False
         return True
 
@@ -619,7 +523,7 @@ class RepairCompilation:
         os.makedirs(self.repair_dir, exist_ok=True)
 
         print("=" * 80)
-        print(" " * 22 + "SMART CONTRACT REPAIR MECHANISM")
+        print(" " * 22 + "COMPILATION REPAIR MECHANISM")
         print("=" * 80)
         print(f"[CONFIG] Strategies : {REPAIR_STRATEGIES}")
         print(f"[CONFIG] Contracts  : {len(self.failed_contracts)}")
@@ -892,7 +796,7 @@ class RepairCompilation:
                             slither_stderr = s_result.get("slither", {}).get("stderr", "")
                             vulns = self._extract_vulnerabilities(slither_stderr)
                             for v in vulns:
-                                sev = VULNERABILITY_SEVERITY.get(v, "Unknown")
+                                sev = VULNERABILITY_SEVERITY_MAPPING.get(v, "Unknown")
                                 if sev in ms["vulnerabilities"]:
                                     ms["vulnerabilities"][sev] += 1
                                     ps["vulnerabilities"][sev] += 1
@@ -1043,7 +947,7 @@ class RepairCompilation:
 
 def main():
     print("=" * 80)
-    print(" " * 18 + "SMART CONTRACT REPAIR MECHANISM PIPELINE")
+    print(" " * 18 + "SMART CONTRACT COMPILATION REPAIR PIPELINE")
     print("=" * 80 + "\n")
 
     repairer = RepairCompilation(output_dir="output")
