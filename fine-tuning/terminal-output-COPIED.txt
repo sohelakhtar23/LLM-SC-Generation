@@ -1,0 +1,81 @@
+======================================================================
+               SMART CONTRACT MODEL FINE-TUNING
+======================================================================
+  Model       : Qwen/Qwen2.5-Coder-1.5B-Instruct
+  Dataset     : finetuning_dataset/dataset.jsonl
+  Epochs      : 3
+  LR          : 0.0002
+  LoRA r / α  : 16 / 16
+  4-bit QLoRA : True
+  Output      : outputs
+======================================================================
+
+[DATA] Loading dataset from finetuning_dataset/dataset.jsonl ...
+[DATA] 329 total examples loaded
+  generation                       117 (35.6%)
+  compilation_repair                75 (22.8%)
+  vulnerability_repair             137 (41.6%)
+[DATA] Dropped 1 examples exceeding ~4096 tokens
+[DATA] Train: 312  |  Validation: 16
+
+[MODEL] Loading Qwen/Qwen2.5-Coder-1.5B-Instruct ...
+==((====))==  Unsloth 2026.4.8: Fast Qwen2 patching. Transformers: 5.4.0.
+   \\   /|    NVIDIA RTX 4000 Ada Generation. Num GPUs = 1. Max memory: 19.995 GB. Platform: Linux.
+O^O/ \_/ \    Torch: 2.6.0+cu124. CUDA: 8.9. CUDA Toolkit: 12.4. Triton: 3.2.0
+\        /    Bfloat16 = TRUE. FA [Xformers = 0.0.29.post3. FA2 = False]
+ "-____-"     Free license: http://github.com/unslothai/unsloth
+Unsloth: Fast downloading is enabled - ignore downloading bars which are red colored!
+Loading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 338/338 [00:01<00:00, 211.95it/s]
+[MODEL] Attaching LoRA adapters ...
+Unsloth 2026.4.8 patched 28 layers with 28 QKV layers, 28 O layers and 28 MLP layers.
+[MODEL] Trainable parameters: 18,464,768 / 907,081,216 (2.04%)
+
+Unsloth: Tokenizing ["text"] (num_proc=28): 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 312/312 [00:17<00:00, 18.29 examples/s]
+num_proc must be <= 16. Reducing num_proc to 16 for dataset of size 16.
+[datasets.arrow_dataset|WARNING]num_proc must be <= 16. Reducing num_proc to 16 for dataset of size 16.
+Unsloth: Tokenizing ["text"] (num_proc=16): 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 16/16 [00:09<00:00,  1.68 examples/s]
+[TRAIN] Starting training ...
+
+The tokenizer has new PAD/BOS/EOS tokens that differ from the model config and generation config. The model config and generation config were aligned accordingly, being updated with the tokenizer's values. Updated tokens: {'bos_token_id': None}.
+==((====))==  Unsloth - 2x faster free finetuning | Num GPUs used = 1
+   \\   /|    Num examples = 312 | Num Epochs = 3 | Total steps = 117
+O^O/ \_/ \    Batch size per device = 2 | Gradient accumulation steps = 4
+\        /    Data Parallel GPUs = 1 | Total batch size (2 x 4 x 1) = 8
+ "-____-"     Trainable parameters = 18,464,768 of 1,562,179,072 (1.18% trained)
+  0%|                                                                                                                                                                                              | 0/117 [00:00<?, ?it/s]`use_return_dict` is deprecated! Use `return_dict` instead!
+{'loss': '0.9668', 'grad_norm': '0.201', 'learning_rate': '3.6e-05', 'epoch': '0.2564'}                                                                                                                                    
+{'loss': '0.8692', 'grad_norm': '0.2308', 'learning_rate': '7.6e-05', 'epoch': '0.5128'}                                                                                                                                   
+{'loss': '0.6941', 'grad_norm': '0.3503', 'learning_rate': '0.000116', 'epoch': '0.7692'}                                                                                                                                  
+{'loss': '0.4538', 'grad_norm': '0.3054', 'learning_rate': '0.000156', 'epoch': '1.026'}                                                                                                                                   
+{'loss': '0.2598', 'grad_norm': '0.2137', 'learning_rate': '0.000196', 'epoch': '1.282'}                                                                                                                                   
+{'loss': '0.1709', 'grad_norm': '0.1947', 'learning_rate': '0.0001912', 'epoch': '1.538'}                                                                                                                                  
+{'loss': '0.1769', 'grad_norm': '0.217', 'learning_rate': '0.0001629', 'epoch': '1.795'}                                                                                                                                   
+{'loss': '0.142', 'grad_norm': '0.1738', 'learning_rate': '0.0001209', 'epoch': '2.051'}                                                                                                                                   
+{'loss': '0.1074', 'grad_norm': '0.194', 'learning_rate': '7.45e-05', 'epoch': '2.308'}                                                                                                                                    
+{'loss': '0.1069', 'grad_norm': '0.1892', 'learning_rate': '3.355e-05', 'epoch': '2.564'}                                                                                                                                  
+ 85%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▊                          | 100/117 [02:15<00:20,  1.20s/it]/mnt/c/sohel/LLM-SC-Generation/.v-finetune2/lib/python3.12/site-packages/transformers/modeling_attn_mask_utils.py:71: FutureWarning: The attention mask API under `transformers.modeling_attn_mask_utils` (`AttentionMaskConverter`) is deprecated and will be removed in Transformers v5.10. Please use the new API in `transformers.masking_utils`.
+  
+{'eval_loss': '0.1143', 'eval_runtime': '1.865', 'eval_samples_per_second': '8.579', 'eval_steps_per_second': '4.29', 'epoch': '2.564'}                                                                                    
+ 85%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▊                          | 100/117 [02:17<00:20,  1.20s/itUnsloth: Restored added_tokens_decoder metadata in outputs/checkpoint-100/tokenizer_config.json.                                                                                                                            
+{'loss': '0.1156', 'grad_norm': '0.1343', 'learning_rate': '6.953e-06', 'epoch': '2.821'}                                                                                                                                  
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 117/117 [02:40<00:00,  1.18s/it]/mnt/c/sohel/LLM-SC-Generation/.v-finetune2/lib/python3.12/site-packages/transformers/modeling_attn_mask_utils.py:71: FutureWarning: The attention mask API under `transformers.modeling_attn_mask_utils` (`AttentionMaskConverter`) is deprecated and will be removed in Transformers v5.10. Please use the new API in `transformers.masking_utils`.
+  
+{'eval_loss': '0.1118', 'eval_runtime': '1.139', 'eval_samples_per_second': '14.05', 'eval_steps_per_second': '7.026', 'epoch': '3'}                                                                                       
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 117/117 [02:41<00:00,  1.18s/itUnsloth: Restored added_tokens_decoder metadata in outputs/checkpoint-117/tokenizer_config.json.                                                                                                                            
+{'train_runtime': '163', 'train_samples_per_second': '5.744', 'train_steps_per_second': '0.718', 'train_loss': '0.3536', 'epoch': '3'}                                                                                     
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 117/117 [02:44<00:00,  1.40s/it]
+
+[TRAIN] Training complete.
+  Training loss     : 0.3536
+  Total steps       : 117
+  Total time        : 163.0s
+
+[SAVE] Saving model to smart-contract-model ...
+Unsloth: Restored added_tokens_decoder metadata in smart-contract-model/tokenizer_config.json.
+[SAVE] Done.
+
+======================================================================
+[SUCCESS] Fine-tuning complete!
+          Model saved to : smart-contract-model/
+          Checkpoints in : outputs/
+======================================================================

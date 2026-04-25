@@ -12,6 +12,7 @@ import argparse
 from datetime import datetime
 from typing import List, Dict, Optional
 
+import unsloth
 import torch
 from datasets import Dataset
 from transformers import TrainingArguments
@@ -27,7 +28,7 @@ LOAD_IN_4BIT    = True          # QLoRA — keeps VRAM low on ≤16 GB GPUs
 # LoRA
 LORA_R          = 16
 LORA_ALPHA      = 16
-LORA_DROPOUT    = 0.05
+LORA_DROPOUT    = 0
 TARGET_MODULES  = ["q_proj", "k_proj", "v_proj", "o_proj",
                    "gate_proj", "up_proj", "down_proj"]  # include MLP layers
 
@@ -182,7 +183,7 @@ def build_trainer(model, tokenizer, train_dataset: Dataset,
         logging_steps               = LOGGING_STEPS,
         save_steps                  = SAVE_STEPS,
         save_total_limit            = 3,        # keep last 3 checkpoints only
-        evaluation_strategy         = "steps" if val_dataset else "no",
+        eval_strategy = "steps" if val_dataset else "no",
         eval_steps                  = SAVE_STEPS if val_dataset else None,
         load_best_model_at_end      = bool(val_dataset),
         optim                       = "adamw_8bit",
