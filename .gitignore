@@ -15,10 +15,8 @@ RESULTS-archiv/
 # output-NEXT4-iteration/*/
 output/
 
-.venv-finetune/
-.finetune2/
-.finetune/
 
 .v-finetune1/
 .v-finetune2/
-.v-finetune3/
+
+fine-tuning/unsloth_compiled_cache/

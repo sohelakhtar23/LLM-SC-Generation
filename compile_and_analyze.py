@@ -120,7 +120,7 @@ MALIGN_SEVERITIES = ["High", "Medium", "Low"]
 
 
 class CompilerAndAnalyzer:
-    def __init__(self, output_dir: str = "output"):
+    def __init__(self, output_dir: str):
         self.output_dir = output_dir
         self.generation_results_path = os.path.join(output_dir, "generation_results.json")
         self.generation_summary_path = os.path.join(output_dir, "generation_summary.json")
@@ -667,6 +667,7 @@ class CompilerAndAnalyzer:
 
 def main():
     analyzer = CompilerAndAnalyzer("output")
+    # analyzer = CompilerAndAnalyzer("fine-tuning/compare-results")
     
     try:
         analyzer.load_generation_results()

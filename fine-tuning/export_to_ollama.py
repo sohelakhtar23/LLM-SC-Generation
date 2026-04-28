@@ -1,10 +1,9 @@
 import os
-import subprocess
 from unsloth import FastLanguageModel
 
 ADAPTER_DIR  = "./smart-contract-model"
-GGUF_DIR     = "./smart-contract-model-gguf"
-OLLAMA_NAME  = "smart-contract-model"
+GGUF_DIR     = "./smart-contract-model"
+OLLAMA_NAME  = "smart-contract-model-FT"
 QUANT        = "q4_k_m"  # q4_k_m | q5_k_m | q8_0 | f16
 
 MODELFILE = """\
@@ -32,12 +31,13 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 
 model.save_pretrained_gguf(GGUF_DIR, tokenizer, quantization_method=QUANT)
 
-gguf_path = next(f for f in os.listdir(GGUF_DIR) if f.endswith(".gguf"))
-gguf_path = os.path.abspath(os.path.join(GGUF_DIR, gguf_path))
-
 with open("Modelfile", "w") as f:
-    f.write(MODELFILE.format(gguf_path=gguf_path))
+    f.write(MODELFILE.format(gguf_path=f"{GGUF_DIR}/unsloth.{QUANT.upper()}.gguf"))
 
-subprocess.run(["ollama", "create", OLLAMA_NAME, "-f", "Modelfile"], check=True)
+print("GGUF and Modelfile ready.")
+print("Now run in PowerShell:")
+print(f"  ollama create {OLLAMA_NAME} -f ./smart-contract-model_gguf/Modelfile")
 
-print(f"\nDone. Run with: ollama run {OLLAMA_NAME}")
+
+# to download base model
+# ollama pull qwen2.5-coder:1.5b-instruct

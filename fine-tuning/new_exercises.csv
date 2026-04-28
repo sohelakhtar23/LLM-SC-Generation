@@ -1,13 +1,15 @@
 Exercise,Specification
-Simple Ether Piggy Bank,"Create a simple Ether savings contract where each user manages their own balance.
+Simple Lottery,"Create a simple single-round lottery contract managed by an owner.
 Requirements:
-- Allow any address to deposit Ether into the contract
-- Track individual balances of each depositor using a mapping
-- Implement a withdraw function that allows users to withdraw their own balance only
-- Reject deposits of zero Ether with a clear error message
-- Reject withdrawals that exceed the caller's balance
-- Emit events for deposits and withdrawals including the caller address and amount
-Security: Use the checks-effects-interactions pattern to prevent reentrancy; zero out balance before transferring Ether"
+- The deployer becomes the manager at deployment
+- Allow any address to enter the lottery by sending a fixed Ether ticket price
+- Store a dynamic list of participant addresses
+- Reject entries that do not send the exact ticket price
+- Manager can call a pickWinner function to pseudo-randomly select one participant and transfer the entire contract balance to them
+- Reset the participants list after a winner is picked so a new round can begin
+- Reject pickWinner calls when no participants have entered
+- Emit an event announcing the winner address and prize amount
+Security: Restrict pickWinner to manager only; acknowledge that block-based randomness is not secure for production use"
 Whitelist Registry,"Create a simple address whitelist contract managed by a single owner.
 Requirements:
 - The deployer becomes the owner at deployment
@@ -28,3 +30,24 @@ Requirements:
 - Use block.timestamp for time tracking
 - Emit events for owner check-ins, deposits, and successful claims
 Security: Ensure beneficiary cannot be the zero address; validate timeout duration is greater than zero at deployment"
+Split Payment,"Create a contract that automatically splits incoming Ether payments among a fixed set of recipients.
+Requirements:
+- The deployer provides a list of recipient addresses and their respective percentage shares at deployment
+- Validate that shares sum to exactly 100 and that no recipient address is the zero address
+- Expose a public payable split function that any address can call with Ether
+- Distribute the received Ether to each recipient proportional to their share in the same transaction
+- Reject calls that send zero Ether
+- Provide public view functions to retrieve the list of recipients and their shares
+- Emit an event for each split including the sender address and total amount distributed
+Security: Validate recipient list is non-empty at deployment; handle rounding dust by sending remainder to the first recipient"
+Donation Tracker,"Create a transparent donation tracking contract where funds are collected for a stated cause.
+Requirements:
+- The deployer becomes the beneficiary and sets a campaign title string at deployment
+- Allow any address to donate Ether to the contract
+- Reject donations of zero Ether with a clear error message
+- Track the total amount donated by each address using a mapping
+- Track the total number of unique donors and the overall total donations received
+- Beneficiary can withdraw the full contract balance at any time
+- Provide public view functions to retrieve campaign title, total donations, and donor count
+- Emit events for each donation including donor address and amount, and for each withdrawal
+Security: Restrict withdrawal to beneficiary only; use a success check when transferring Ether"

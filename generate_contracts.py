@@ -24,6 +24,8 @@ MODELS = [
     "llama3.1:8b",
     "qwen2.5-coder:7b",
     "deepseek-coder:6.7b"
+    # "qwen2.5-coder:1.5b-instruct",
+    # "smart-contract-model-FT:latest"
 ]
 OLLAMA_TIMEOUT = 180
 MAX_RETRIES = 2
@@ -31,8 +33,8 @@ REQUEST_TIMEOUT = 180
 
 
 class ContractGenerator:
-    def __init__(self):
-        self.output_dir = "output"
+    def __init__(self, output_dir: str):
+        self.output_dir = output_dir
         self.generation_results = {}
         self.folder_mapping = {}
         self.statistics = {
@@ -350,10 +352,11 @@ class ContractGenerator:
 
 
 if __name__ == '__main__':
-    generator = ContractGenerator()
+    generator = ContractGenerator(output_dir="output")
+    # generator = ContractGenerator(output_dir="fine-tuning/compare-results")
     try:
         generator.run_generation("prompts_final.csv")
-        # generator.run_generation("temp/prompts2_temp.csv")
+        # generator.run_generation("fine-tuning/new_exercises.csv")
     except KeyboardInterrupt:
         print("\n\n[INTERRUPTED] Generation stopped by user")
     except Exception as e:
