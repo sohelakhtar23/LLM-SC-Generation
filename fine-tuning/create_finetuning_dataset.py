@@ -1,9 +1,15 @@
 import os
+import sys
 import json
 import re
 from typing import Dict, List, Any, Tuple
 from collections import defaultdict
 from datetime import datetime
+
+# Add the parent directory to sys.path
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_DIR)
+
 from constant import VULNERABILITY_SEVERITY_MAPPING
 
 # ── Configuration ──────────────────────────────────────────────────────────────
@@ -92,7 +98,7 @@ class DatasetBuilder:
         
         print()
 
-    def load_specifications(self, dataset_path: str = "prompts_final.csv") -> None:
+    def load_specifications(self, dataset_path: str) -> None:
         """Load specifications from CSV."""
         import pandas as pd
         
@@ -246,6 +252,8 @@ class DatasetBuilder:
                     # not inside individual strategy results
                     faulty_code   = ""
                     original_sol_path = iteration_data.get("original_sol_path", "")
+                    if original_sol_path and not os.path.isabs(original_sol_path):
+                        original_sol_path = os.path.join(ROOT_DIR, original_sol_path)
                     if original_sol_path and os.path.exists(original_sol_path):
                         with open(original_sol_path, 'r', encoding='utf-8') as f:
                             faulty_code = f.read()
@@ -288,6 +296,8 @@ class DatasetBuilder:
                             # repaired_code lives on disk; path is in the strategy result
                             repaired_code = ""
                             repaired_sol_path = result.get("repaired_sol_path", "")
+                            if repaired_sol_path and not os.path.isabs(repaired_sol_path):
+                                repaired_sol_path = os.path.join(ROOT_DIR, repaired_sol_path)
                             if repaired_sol_path and os.path.exists(repaired_sol_path):
                                 with open(repaired_sol_path, 'r', encoding='utf-8') as f:
                                     repaired_code = f.read()
@@ -339,7 +349,7 @@ class DatasetBuilder:
         
         for model_name, model_data in self.repair_vulnerability_results.items():
             for prompt_name, prompt_data in model_data.items():
-                spec = self.spec_lookup.get(prompt_name, "")
+                # spec = self.spec_lookup.get(prompt_name, "")
                 
                 for iteration_key, iteration_data in prompt_data.items():
                     # Try each strategy and pick the best one
@@ -410,7 +420,7 @@ class DatasetBuilder:
                                 ),
                                 "input": (
                                     f"Task: {prompt_name}\n\n"
-                                    f"Specification: {spec}\n\n"
+                                    # f"Specification: {spec}\n\n"
                                     f"Vulnerabilities Detected:\n{vuln_text}\n\n"
                                     f"Vulnerable Contract:\n{original_code if original_code else '[code would be here]'}"
                                 ),
@@ -544,7 +554,7 @@ class DatasetBuilder:
         
         # Load all data
         self.load_all_data()
-        self.load_specifications()
+        self.load_specifications(dataset_path="../prompts_final.csv")
         
         # Collect examples from each source
         self.collect_generation_examples()
@@ -555,7 +565,6 @@ class DatasetBuilder:
             print("[WARNING] No examples collected! Check quality thresholds.\n")
             return
         
-        # Export in multiple formats
         self.export_dataset(formats=["jsonl"])
         self.export_statistics()
         
@@ -567,7 +576,7 @@ class DatasetBuilder:
 
 
 def main():
-    builder = DatasetBuilder(output_dir="output")
+    builder = DatasetBuilder(output_dir="../output")
     
     try:
         builder.build_dataset()
