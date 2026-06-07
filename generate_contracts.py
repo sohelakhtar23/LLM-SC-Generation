@@ -78,7 +78,7 @@ class ContractGenerator:
             raise
 
     def sanitize_filename(self, name: str) -> str:
-        """Remove invalid characters for Windows file paths."""
+        """Replace invalid characters for Windows file paths with underscores."""
         return re.sub(r'[<>:"/\\|?*]', '_', name)
 
     def call_ollama_api(self, model: str, prompt: str, temperature: float = 0.2, 

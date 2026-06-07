@@ -5,7 +5,7 @@ Unsloth: Your Flash Attention 2 installation seems to be broken. Using Xformers 
                SMART CONTRACT MODEL FINE-TUNING
 ======================================================================
   Model       : Qwen/Qwen2.5-Coder-1.5B-Instruct
-  Dataset     : finetuning_dataset/dataset.jsonl
+  Dataset     : FT_dataset/dataset.jsonl
   Epochs      : 3
   LR          : 0.0002
   LoRA r / α  : 16 / 16
@@ -13,7 +13,7 @@ Unsloth: Your Flash Attention 2 installation seems to be broken. Using Xformers 
   Output      : outputs
 ======================================================================
 
-[DATA] Loading dataset from finetuning_dataset/dataset.jsonl ...
+[DATA] Loading dataset from FT_dataset/dataset.jsonl ...
 [DATA] 329 total examples loaded
   generation                       117 (35.6%)
   compilation_repair                75 (22.8%)

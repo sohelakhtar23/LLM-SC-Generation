@@ -1,8 +1,8 @@
 """
-train.py — Fine-tuning script for smart contract generation
+FT_model_creation.py — Fine-tuning script for smart contract generation
 Model  : Qwen/Qwen2.5-Coder-1.5B-Instruct
 Method : LoRA via Unsloth + TRL SFTTrainer
-Dataset: finetuning_dataset/dataset.jsonl  (produced by create_finetuning_dataset.py)
+Dataset: FT_dataset/dataset.jsonl  (produced by create_finetuning_dataset.py)
 """
 
 import os
@@ -43,7 +43,7 @@ SAVE_STEPS              = 100
 VAL_SPLIT               = 0.05  # 5% held out for validation
 
 # Paths
-DATASET_PATH    = "finetuning_dataset/dataset.jsonl"
+DATASET_PATH    = "FT_dataset/dataset.jsonl"
 OUTPUT_DIR      = "outputs"
 MODEL_SAVE_DIR  = "smart-contract-model"
 

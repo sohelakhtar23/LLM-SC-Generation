@@ -169,6 +169,109 @@ class RepairCompilation:
         print()
 
     # ── Prompt builders ─────────────────────────────────────────────────────────
+    
+    def _build_prompt(self, strategy: str, prompt_name: str, specification: str,
+                      faulty_code: str, compile_error: str,
+                      retry_context: Optional[Dict] = None) -> str:
+        """Return a repair prompt for the given strategy.
+
+        On the first attempt ``retry_context`` is ``None`` and the standard
+        strategy prompt is returned.  On subsequent attempts pass a
+        ``retry_context`` dict and this method delegates entirely to
+        :meth:`_build_retry_prompt`, returning a fresh, self-contained prompt
+        that explicitly references what the previous attempt produced and why
+        it still failed to compile.
+
+        ``retry_context`` keys
+        ----------------------
+        failed_code       : contract text from the previous LLM attempt
+        new_compile_error : compiler stderr from that attempt
+        retry_num         : 1-based attempt counter
+
+        Args:
+            strategy:       One of REPAIR_STRATEGIES.
+            prompt_name:    Short task identifier.
+            specification:  Natural-language contract specification.
+            faulty_code:    The *original* contract that first failed to compile.
+            compile_error:  Compiler errors from the *original* contract.
+            retry_context:  When present, a full retry prompt is returned
+                            instead of the standard base prompt.
+        """
+        # ── Retry path: delegate entirely to _build_retry_prompt ──────────────
+        if retry_context is not None:
+            return self._build_retry_prompt(
+                strategy               = strategy,
+                prompt_name            = prompt_name,
+                specification          = specification,
+                original_faulty_code   = faulty_code,
+                original_compile_error = compile_error,
+                failed_code            = retry_context["failed_code"],
+                new_compile_error      = retry_context["new_compile_error"],
+                retry_num              = retry_context.get("retry_num", 1),
+            )
+
+        # ── First-attempt path (original logic) ───────────────────────────────
+        if strategy == "direct_fix":
+            return (
+                f"The following Solidity smart contract failed to compile.\n"
+                f"Fix ALL compilation errors and return the corrected, complete contract.\n\n"
+                f"TASK: {prompt_name}\n"
+                f"SPECIFICATION: {specification}\n\n"
+                f"FAULTY CONTRACT:\n```solidity\n{faulty_code}\n```\n\n"
+                f"COMPILATION ERRORS:\n{compile_error}\n\n"
+                f"OUTPUT FORMAT:\n"
+                f"- Provide the complete correct Solidity code\n"
+                f"- No explanations, No markdown formatting outside code blocks\n"
+                f"- Ensure the contract matches the given specification\n"
+                f"- Use Solidity ^0.8.x\n"
+            )
+
+        elif strategy == "chain_of_thought":
+            return (
+                f"A Solidity smart contract failed to compile. "
+                f"Go through each error before writing the fix.\n\n"
+                f"TASK: {prompt_name}\n"
+                f"SPECIFICATION: {specification}\n\n"
+                f"FAULTY CONTRACT:\n```solidity\n{faulty_code}\n```\n\n"
+                f"COMPILATION ERRORS:\n{compile_error}\n\n"
+                f"INSTRUCTIONS - follow these steps in order:\n"
+                f"Step 1. For each compilation error, identify the code location and its root cause. "
+                f"Reference code by line numbers or function names in plain text - "
+                f"do NOT use code fences in this step.\n"
+                f"Step 2. Describe the exact code changes needed to fix each error in plain text - "
+                f"do NOT use code fences in this step.\n"
+                f"Step 3. Output the complete corrected Solidity contract.\n\n"
+                f"OUTPUT FORMAT:\n"
+                f"- Steps 1 and 2 must use plain text only - no code fences of any kind\n"
+                f"- Wrap the final contract in ```solidity ... ``` fences\n"
+                f"- The contract must be complete - no placeholders or partial code\n"
+                f"- Use Solidity ^0.8.x\n"
+            )
+
+        elif strategy == "role_based":
+            return (
+                f"You are a senior Solidity security engineer with 10+ years of experience "
+                f"auditing and fixing production smart contracts on Ethereum mainnet.\n"
+                f"A junior developer submitted the contract below and the compiler rejected it. "
+                f"Your job is to produce a corrected, production-ready version that compiles "
+                f"cleanly and implements the original specification.\n\n"
+                f"TASK: {prompt_name}\n"
+                f"SPECIFICATION: {specification}\n\n"
+                f"SUBMITTED CONTRACT (FAULTY):\n"
+                f"```solidity\n{faulty_code}\n```\n\n"
+                f"COMPILER FEEDBACK:\n"
+                f"{compile_error}\n\n"
+                f"INSTRUCTION:\n"
+                f"- Resolve every compiler error \n"
+                f"- Apply Solidity security best practices\n"
+                f"OUTPUT FORMAT:\n"
+                f"- Return ONLY the corrected Solidity code inside ```solidity ... ``` fences\n"
+                f"- Use Solidity ^0.8.x\n"
+            )
+
+        else:
+            raise ValueError(f"Unknown repair strategy: {strategy}")
+
 
     def _build_retry_prompt(
         self,
@@ -276,108 +379,7 @@ class RepairCompilation:
         else:
             raise ValueError(f"Unknown repair strategy: {strategy}")
 
-    def _build_prompt(self, strategy: str, prompt_name: str, specification: str,
-                      faulty_code: str, compile_error: str,
-                      retry_context: Optional[Dict] = None) -> str:
-        """Return a repair prompt for the given strategy.
-
-        On the first attempt ``retry_context`` is ``None`` and the standard
-        strategy prompt is returned.  On subsequent attempts pass a
-        ``retry_context`` dict and this method delegates entirely to
-        :meth:`_build_retry_prompt`, returning a fresh, self-contained prompt
-        that explicitly references what the previous attempt produced and why
-        it still failed to compile.
-
-        ``retry_context`` keys
-        ----------------------
-        failed_code       : contract text from the previous LLM attempt
-        new_compile_error : compiler stderr from that attempt
-        retry_num         : 1-based attempt counter
-
-        Args:
-            strategy:       One of REPAIR_STRATEGIES.
-            prompt_name:    Short task identifier.
-            specification:  Natural-language contract specification.
-            faulty_code:    The *original* contract that first failed to compile.
-            compile_error:  Compiler errors from the *original* contract.
-            retry_context:  When present, a full retry prompt is returned
-                            instead of the standard base prompt.
-        """
-        # ── Retry path: delegate entirely to _build_retry_prompt ──────────────
-        if retry_context is not None:
-            return self._build_retry_prompt(
-                strategy               = strategy,
-                prompt_name            = prompt_name,
-                specification          = specification,
-                original_faulty_code   = faulty_code,
-                original_compile_error = compile_error,
-                failed_code            = retry_context["failed_code"],
-                new_compile_error      = retry_context["new_compile_error"],
-                retry_num              = retry_context.get("retry_num", 1),
-            )
-
-        # ── First-attempt path (original logic) ───────────────────────────────
-        if strategy == "direct_fix":
-            return (
-                f"The following Solidity smart contract failed to compile.\n"
-                f"Fix ALL compilation errors and return the corrected, complete contract.\n\n"
-                f"TASK: {prompt_name}\n"
-                f"SPECIFICATION: {specification}\n\n"
-                f"FAULTY CONTRACT:\n```solidity\n{faulty_code}\n```\n\n"
-                f"COMPILATION ERRORS:\n{compile_error}\n\n"
-                f"OUTPUT FORMAT:\n"
-                f"- Provide the complete correct Solidity code\n"
-                f"- No explanations, No markdown formatting outside code blocks\n"
-                f"- Ensure the contract matches the given specification\n"
-                f"- Use Solidity ^0.8.x\n"
-            )
-
-        elif strategy == "chain_of_thought":
-            return (
-                f"A Solidity smart contract failed to compile. "
-                f"Go through each error before writing the fix.\n\n"
-                f"TASK: {prompt_name}\n"
-                f"SPECIFICATION: {specification}\n\n"
-                f"FAULTY CONTRACT:\n```solidity\n{faulty_code}\n```\n\n"
-                f"COMPILATION ERRORS:\n{compile_error}\n\n"
-                f"INSTRUCTIONS - follow these steps in order:\n"
-                f"Step 1. For each compilation error, identify the code location and its root cause. "
-                f"Reference code by line numbers or function names in plain text - "
-                f"do NOT use code fences in this step.\n"
-                f"Step 2. Describe the exact code changes needed to fix each error in plain text - "
-                f"do NOT use code fences in this step.\n"
-                f"Step 3. Output the complete corrected Solidity contract.\n\n"
-                f"OUTPUT FORMAT:\n"
-                f"- Steps 1 and 2 must use plain text only - no code fences of any kind\n"
-                f"- Wrap the final contract in ```solidity ... ``` fences\n"
-                f"- The contract must be complete - no placeholders or partial code\n"
-                f"- Use Solidity ^0.8.x\n"
-            )
-
-        elif strategy == "role_based":
-            return (
-                f"You are a senior Solidity security engineer with 10+ years of experience "
-                f"auditing and fixing production smart contracts on Ethereum mainnet.\n"
-                f"A junior developer submitted the contract below and the compiler rejected it. "
-                f"Your job is to produce a corrected, production-ready version that compiles "
-                f"cleanly and implements the original specification.\n\n"
-                f"TASK: {prompt_name}\n"
-                f"SPECIFICATION: {specification}\n\n"
-                f"SUBMITTED CONTRACT (FAULTY):\n"
-                f"```solidity\n{faulty_code}\n```\n\n"
-                f"COMPILER FEEDBACK:\n"
-                f"{compile_error}\n\n"
-                f"INSTRUCTION:\n"
-                f"- Resolve every compiler error \n"
-                f"- Apply Solidity security best practices\n"
-                f"OUTPUT FORMAT:\n"
-                f"- Return ONLY the corrected Solidity code inside ```solidity ... ``` fences\n"
-                f"- Use Solidity ^0.8.x\n"
-            )
-
-        else:
-            raise ValueError(f"Unknown repair strategy: {strategy}")
-
+        
     # ── Ollama API ───────────────────────────────────────────────────────────────
 
     def _call_ollama(self, model: str, prompt: str, temperature: float = 0.2,

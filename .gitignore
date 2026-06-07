@@ -20,3 +20,4 @@ output/
 .v-finetune2/
 
 fine-tuning/unsloth_compiled_cache/
+fine-tuning/compare-results-FT-Apr28/

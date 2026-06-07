@@ -8,112 +8,8 @@ from typing import Dict, List, Tuple, Any
 from collections import defaultdict
 from datetime import datetime
 from yaspin import yaspin
+from constant import VULNERABILITY_SEVERITY_MAPPING
 
-# Vulnerability severity mapping from Slither documentation
-VULNERABILITY_SEVERITY = {
-    # High Severity
-    "storage-abiencoderv2-array": "High",
-    "arbitrary-from-in-transferfrom": "High",
-    "modifying-storage-array-by-value": "High",
-    "abi-encodePacked-collision": "High",
-    "incorrect-shift-in-assembly": "High",
-    "multiple-constructor-schemes": "High",
-    "name-reused": "High",
-    "protected-variables": "High",
-    "public-mappings-with-nested-variables": "High",
-    "right-to-left-override-character": "High",
-    "state-variable-shadowing": "High",
-    "suicidal": "High",
-    "uninitialized-state-variables": "High",
-    "uninitialized-storage-variables": "High",
-    "unprotected-upgradeable-contract": "High",
-    "codex": "High",
-    "arbitrary-from-in-transferfrom-used-with-permit": "High",
-    "functions-that-send-ether-to-arbitrary-destinations": "High",
-    "array-length-assignment": "High",
-    "controlled-delegatecall": "High",
-    "payable-functions-using-delegatecall-inside-a-loop": "High",
-    "incorrect-exponentiation": "High",
-    "incorrect-return-in-assembly": "High",
-    "msgvalue-inside-a-loop": "High",
-    "reentrancy-vulnerabilities": "High",
-    "return-instead-of-leave-in-assembly": "High",
-    "storage-signed-integer-array": "High",
-    "unchecked-transfer": "High",
-    "weak-PRNG": "High",
-    
-    # Medium Severity
-    "domain-separator-collision": "Medium",
-    "dangerous-enum-conversion": "Medium",
-    "incorrect-erc20-interface": "Medium",
-    "incorrect-erc721-interface": "Medium",
-    "dangerous-strict-equalities": "Medium",
-    "contracts-that-lock-ether": "Medium",
-    "deletion-on-mapping-containing-a-structure": "Medium",
-    "state-variable-shadowing-from-abstract-contracts": "Medium",
-    "tautological-compare": "Medium",
-    "tautology-or-contradiction": "Medium",
-    "write-after-write": "Medium",
-    "misuse-of-a-boolean-constant": "Medium",
-    "constant-functions-using-assembly-code": "Medium",
-    "constant-functions-changing-the-state": "Medium",
-    "divide-before-multiply": "Medium",
-    "out-of-order-retryable-transactions": "Medium",
-    "reentrancy-vulnerabilities-1": "Medium",
-    "reused-base-constructors": "Medium",
-    "dangerous-usage-of-txorigin": "Medium",
-    "unchecked-low-level-calls": "Medium",
-    "unchecked-send": "Medium",
-    "uninitialized-local-variables": "Medium",
-    "unused-return": "Medium",
-    
-    # Low Severity
-    "incorrect-modifier": "Low",
-    "builtin-symbol-shadowing": "Low",
-    "local-variable-shadowing": "Low",
-    "uninitialized-function-pointers-in-constructors": "Low",
-    "pre-declaration-usage-of-local-variables": "Low",
-    "void-constructor": "Low",
-    "calls-inside-a-loop": "Low",
-    "missing-events-access-control": "Low",
-    "missing-events-arithmetic": "Low",
-    "dangerous-unary-expressions": "Low",
-    "missing-zero-address-validation": "Low",
-    "reentrancy-vulnerabilities-2": "Low",
-    "reentrancy-vulnerabilities-3": "Low",
-    "return-bomb": "Low",
-    "block-timestamp": "Low",
-    
-    # Informational
-    "assembly-usage": "Informational",
-    "assert-state-change": "Informational",
-    "boolean-equality": "Informational",
-    "cyclomatic-complexity": "Informational",
-    "deprecated-standards": "Informational",
-    "unindexed-erc20-event-parameters": "Informational",
-    "function-initializing-state": "Informational",
-    "incorrect-using-for-usage": "Informational",
-    "low-level-calls": "Informational",
-    "missing-inheritance": "Informational",
-    "conformance-to-solidity-naming-conventions": "Informational",
-    "different-pragma-directives-are-used": "Informational",
-    "redundant-statements": "Informational",
-    "incorrect-versions-of-solidity": "Informational",
-    "unimplemented-functions": "Informational",
-    "unused-imports": "Informational",
-    "unused-state-variable": "Informational",
-    "costly-operations-inside-a-loop": "Informational",
-    "dead-code": "Informational",
-    "reentrancy-vulnerabilities-4": "Informational",
-    "too-many-digits": "Informational",
-    
-    # Optimization
-    "cache-array-length": "Optimization",
-    "state-variables-that-could-be-declared-constant": "Optimization",
-    "public-function-that-could-be-declared-external": "Optimization",
-    "state-variables-that-could-be-declared-immutable": "Optimization",
-    "public-variable-read-in-external-context": "Optimization",
-}
 
 SEVERITY_ORDER = ["High", "Medium", "Low", "Informational", "Optimization"]
 MALIGN_SEVERITIES = ["High", "Medium", "Low"]
@@ -136,7 +32,7 @@ class CompilerAndAnalyzer:
         }
 
     def sanitize_filename(self, name: str) -> str:
-        """Remove invalid characters for Windows file paths."""
+        """Replace invalid characters for Windows file paths with underscores."""
         return re.sub(r'[<>:"/\\|?*]', '_', name)
 
     def load_generation_results(self) -> None:
@@ -346,7 +242,7 @@ class CompilerAndAnalyzer:
         
         stderr_lower = slither_stderr.lower()
         
-        for vuln_type in VULNERABILITY_SEVERITY.keys():
+        for vuln_type in VULNERABILITY_SEVERITY_MAPPING.keys():
             vuln_url = f"{base_url}{vuln_type}\n"
             count = stderr_lower.count(vuln_url.lower())
             if count > 0:
@@ -357,7 +253,7 @@ class CompilerAndAnalyzer:
     def has_only_benign_vulnerabilities(self, vulnerabilities: List[str]) -> bool:
         """Check if contract only has Optimization/Informational issues."""
         for vuln in vulnerabilities:
-            severity = VULNERABILITY_SEVERITY.get(vuln, "Unknown")
+            severity = VULNERABILITY_SEVERITY_MAPPING.get(vuln, "Unknown")
             if severity not in ["Optimization", "Informational"]:
                 return False
         return True
@@ -451,7 +347,7 @@ class CompilerAndAnalyzer:
                         
                         # Count vulnerabilities by severity
                         for vuln in vulnerabilities:
-                            severity = VULNERABILITY_SEVERITY.get(vuln, "Unknown")
+                            severity = VULNERABILITY_SEVERITY_MAPPING.get(vuln, "Unknown")
                             if severity in model_stats["vulnerabilities"]:
                                 model_stats["vulnerabilities"][severity] += 1
                                 prompt_stats["vulnerabilities"][severity] += 1
@@ -514,7 +410,7 @@ class CompilerAndAnalyzer:
         
         if malign_only:
             vuln_counts = {k: v for k, v in vuln_counts.items() 
-                          if VULNERABILITY_SEVERITY.get(k, "Unknown") in MALIGN_SEVERITIES}
+                          if VULNERABILITY_SEVERITY_MAPPING.get(k, "Unknown") in MALIGN_SEVERITIES}
         
         return sorted(vuln_counts.items(), key=lambda x: x[1], reverse=True)[:top_n]
 
@@ -603,7 +499,7 @@ class CompilerAndAnalyzer:
                 
                 if top_vulns:
                     for i, (vuln_type, count) in enumerate(top_vulns, 1):
-                        severity = VULNERABILITY_SEVERITY.get(vuln_type, "Unknown")
+                        severity = VULNERABILITY_SEVERITY_MAPPING.get(vuln_type, "Unknown")
                         f.write(f"  {i:2}. {vuln_type:50} [{severity:13}] x{count}\n")
                 else:
                     f.write("  No malign vulnerabilities detected\n")

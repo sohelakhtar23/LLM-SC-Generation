@@ -48,7 +48,7 @@ Quality Criteria:
 #### 3. **Vulnerability Repair** (from `repair_vulnerability.py`)
 ```
 Instruction: Fix security vulnerabilities
-Input: Task + Spec + Vulnerable Code + Vulnerability List
+Input: Task + Vulnerable Code + Vulnerability List
 Output: Secure contract
 
 Quality Criteria:
@@ -400,7 +400,6 @@ python generate_contracts.py
 python compile_and_analyze.py
 
 # Compare results
-python compare_models.py --baseline qwen2.5-coder:7b --finetuned your-model
 ```
 
 **Metrics to Compare**:
@@ -410,47 +409,7 @@ python compare_models.py --baseline qwen2.5-coder:7b --finetuned your-model
 4. **Generation Time**: Seconds per contract (smaller model should be faster)
 5. **Overall Success Rate**: % that compile AND are secure
 
-### 2. Create Evaluation Script
-
-```python
-# compare_models.py
-import json
-
-def compare_models(baseline_results, finetuned_results):
-    """Compare two models' performance."""
-    
-    metrics = {}
-    
-    for model_name, results in [("Baseline", baseline_results), 
-                                 ("Fine-tuned", finetuned_results)]:
-        # Load compilation results
-        with open(results, 'r') as f:
-            data = json.load(f)
-        
-        total = 0
-        compiled = 0
-        clean = 0
-        
-        for model, prompts in data.items():
-            for prompt, iterations in prompts.items():
-                for iteration, result in iterations.items():
-                    total += 1
-                    if result.get("compilation", {}).get("success"):
-                        compiled += 1
-                        # Check if clean (no malign vulnerabilities)
-                        # ... vulnerability checking logic
-        
-        metrics[model_name] = {
-            "compilation_rate": compiled / total * 100,
-            "security_rate": clean / compiled * 100 if compiled > 0 else 0
-        }
-    
-    print(f"Baseline compilation: {metrics['Baseline']['compilation_rate']:.1f}%")
-    print(f"Fine-tuned compilation: {metrics['Fine-tuned']['compilation_rate']:.1f}%")
-    print(f"Improvement: {metrics['Fine-tuned']['compilation_rate'] - metrics['Baseline']['compilation_rate']:.1f}%")
-```
-
-### 3. Ablation Studies
+### 2. Ablation Studies
 
 Test different training configurations:
 
@@ -477,7 +436,7 @@ dataset_repair_only = load_datasets([
 # Which performs best on your evaluation set?
 ```
 
-### 4. Human Evaluation
+### 3. Human Evaluation
 
 For a subset of generated contracts (e.g., 50), manually check:
 - **Correctness**: Does it match the specification?
@@ -485,7 +444,7 @@ For a subset of generated contracts (e.g., 50), manually check:
 - **Code Quality**: Is it well-structured?
 - **Readability**: Is it documented?
 
-### 5. Expected Results
+### 4. Expected Results
 
 **Realistic expectations for a 2B fine-tuned model**:
 
@@ -511,41 +470,7 @@ Sweet spot:
 
 ---
 
-## Complete Workflow
 
-### Phase 1: Data Collection (DONE)
-```bash
-✓ python generate_contracts.py
-✓ python compile_and_analyze.py
-✓ python repair_compilation.py
-✓ python repair_vulnerability.py
-```
-
-### Phase 2: Dataset Creation (DO NOW)
-```bash
-→ python create_finetuning_dataset.py
-→ Check finetuning_dataset/dataset_statistics.json
-→ Review dataset quality and distribution
-```
-
-### Phase 3: Fine-Tuning (NEXT)
-```bash
-→ Install: pip install unsloth trl datasets
-→ Prepare training script (use template above)
-→ python train.py
-→ Monitor loss and save checkpoints
-```
-
-### Phase 4: Evaluation (FINAL)
-```bash
-→ Convert fine-tuned model to Ollama format
-→ Modify MODELS in generate_contracts.py
-→ Run full pipeline with fine-tuned model
-→ Compare metrics vs baseline
-→ Write up results
-```
-
----
 
 ## Research Questions You Can Answer
 
@@ -564,8 +489,6 @@ Sweet spot:
 5. **What's the minimum dataset size needed?**
    - Train with 100, 300, 500, 1000, 1500 examples
 
-6. **Does model size matter for code generation?**
-   - 1.5B vs 2.7B vs 7B (all fine-tuned on same data)
 
 ---
 
@@ -611,13 +534,3 @@ Sweet spot:
 
 ---
 
-## Next Steps
-
-1. Run `python create_finetuning_dataset.py`
-2. Check the statistics: `cat finetuning_dataset/dataset_statistics.json`
-3. Review some examples: `head -n 5 finetuning_dataset/dataset.jsonl`
-4. Choose a base model (recommend Qwen2.5-Coder-1.5B)
-5. Set up training environment
-6. Start fine-tuning!
-
-Good luck with your research! 🚀

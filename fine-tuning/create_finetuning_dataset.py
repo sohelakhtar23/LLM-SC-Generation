@@ -14,7 +14,7 @@ from constant import VULNERABILITY_SEVERITY_MAPPING
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 OUTPUT_DIR = "output"
-DATASET_DIR = "finetuning_dataset"
+DATASET_DIR = "FT_dataset"
 
 # Quality thresholds
 MIN_QUALITY_SCORE = 0.7  # 0.0 to 1.0
