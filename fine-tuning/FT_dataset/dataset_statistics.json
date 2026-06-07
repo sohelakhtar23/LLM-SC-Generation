@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-04-28T08:38:16.314345",
+  "total_examples": 329,
+  "task_distribution": {
+    "generation": 117,
+    "compilation_repair": 75,
+    "vulnerability_repair": 137
+  },
+  "model_distribution": {
+    "gpt-oss:20b": 69,
+    "gemma3:27b": 77,
+    "mistral-small:24b": 59,
+    "llama3.1:8b": 34,
+    "qwen2.5-coder:7b": 49,
+    "deepseek-coder:6.7b": 41
+  },
+  "collection_stats": {
+    "generation": {
+      "total": 480,
+      "high_quality": 117,
+      "used": 117
+    },
+    "compilation_repair": {
+      "total": 513,
+      "high_quality": 141,
+      "used": 75
+    },
+    "vulnerability_repair": {
+      "total": 576,
+      "high_quality": 243,
+      "used": 137
+    }
+  },
+  "quality_statistics": {
+    "mean_quality_score": 0.98,
+    "min_quality_score": 0.74,
+    "max_quality_score": 1.0
+  },
+  "configuration": {
+    "min_quality_score": 0.7,
+    "max_vulnerabilities_allowed": 0,
+    "max_vulnerabilities_after_repair": 1
+  }
+}

@@ -14,3 +14,10 @@ myth-files/
 RESULTS-archiv/
 # output-NEXT4-iteration/*/
 output/
+
+
+.v-finetune1/
+.v-finetune2/
+
+fine-tuning/unsloth_compiled_cache/
+fine-tuning/compare-results-FT-Apr28/
