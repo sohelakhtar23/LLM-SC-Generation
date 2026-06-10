@@ -1,0 +1,153 @@
+>> python generate_contracts.py
+================================================================================
+                    SOLIDITY CONTRACT GENERATION
+================================================================================
+
+[INFO] Output directory cleaned and created: output
+
+[DATASET] Loading: prompts_final.csv
+[DATASET] Total prompts: 10
+
+[PROMPTS]
+  [1] Ownership and Access Control: 487 chars
+  [2] Time-Locked Wallet: 522 chars
+  [3] Simple Voting System: 576 chars
+  [4] ERC20-Like Token: 560 chars
+  [5] Escrow Contract: 681 chars
+  [6] Multi-Signature Wallet: 627 chars
+  [7] Auction Contract: 626 chars
+  [8] Subscription Payment System: 611 chars
+  [9] Crowdfunding Contract: 657 chars
+  [10] Role-Based Access Control: 576 chars
+
+[MODELS] ['deepseek-coder:6.7b', 'granite4.1:8b', 'lfm2.5:8b', 'llama3.1:8b', 'ministral-3:8b', 'qwen2.5-coder:7b', 'qwen3:8b', 'starcoder2:7b']
+[CONFIG] Iterations per prompt: 5
+[CONFIG] LLM timeout: 180s (3 minutes)
+[CONFIG] Max retries: 2
+
+
+================================================================================
+[MODEL] Processing: deepseek-coder:6.7b
+================================================================================
+
+  ✓ [1/10] Ownership and Access Control [Iter 1] - 9.6s (gen: 9.6s)
+  ✓ [1/10] Ownership and Access Control [Iter 2] - 6.4s (gen: 6.39s)
+  ✓ [1/10] Ownership and Access Control [Iter 3] - 6.4s (gen: 6.35s)
+  ✓ [1/10] Ownership and Access Control [Iter 4] - 4.8s (gen: 4.8s)
+
+  ...
+  ================================================================================
+[MODEL] Processing: qwen3:8b
+================================================================================
+
+  ✓ [1/10] Ownership and Access Control [Iter 1] - 31.5s (gen: 31.54s)
+  ✓ [1/10] Ownership and Access Control [Iter 2] - 20.0s (gen: 19.96s)
+  ✓ [1/10] Ownership and Access Control [Iter 3] - 24.6s (gen: 24.61s)
+  ✓ [1/10] Ownership and Access Control [Iter 4] - 15.8s (gen: 15.83s)
+  ✓ [1/10] Ownership and Access Control [Iter 5] - 25.8s (gen: 25.81s)
+  ✓ [2/10] Time-Locked Wallet [Iter 1] - 38.3s (gen: 38.31s)
+  ✓ [2/10] Time-Locked Wallet [Iter 2] - 45.2s (gen: 45.22s)
+  ✓ [2/10] Time-Locked Wallet [Iter 3] - 44.2s (gen: 44.16s)
+  ✓ [2/10] Time-Locked Wallet [Iter 4] - 40.2s (gen: 40.17s)
+  ✓ [2/10] Time-Locked Wallet [Iter 5] - 35.3s (gen: 35.3s)
+  ✓ [3/10] Simple Voting System [Iter 1] - 71.6s (gen: 71.58s)
+  ✓ [3/10] Simple Voting System [Iter 2] - 90.4s (gen: 90.38s)
+  ✓ [3/10] Simple Voting System [Iter 3] - 85.1s (gen: 85.1s)
+  ✓ [3/10] Simple Voting System [Iter 4] - 53.2s (gen: 53.15s)
+  ✓ [3/10] Simple Voting System [Iter 5] - 66.4s (gen: 66.37s)
+  ✓ [4/10] ERC20-Like Token [Iter 1] - 38.6s (gen: 38.63s)
+  ✓ [4/10] ERC20-Like Token [Iter 2] - 58.5s (gen: 58.52s)
+  ✓ [4/10] ERC20-Like Token [Iter 3] - 61.8s (gen: 61.77s)
+  ✓ [4/10] ERC20-Like Token [Iter 4] - 52.3s (gen: 52.32s)
+  ✓ [4/10] ERC20-Like Token [Iter 5] - 46.8s (gen: 46.8s)
+  ✓ [5/10] Escrow Contract [Iter 1] - 156.0s (gen: 155.96s)
+  ✓ [5/10] Escrow Contract [Iter 2] - 69.0s (gen: 68.98s)
+  ✓ [5/10] Escrow Contract [Iter 3] - 74.5s (gen: 74.51s)
+  ✓ [5/10] Escrow Contract [Iter 4] - 80.7s (gen: 80.73s)
+  ✓ [5/10] Escrow Contract [Iter 5] - 114.1s (gen: 114.07s)
+⠋ [6/10] Multi-Signature Wallet | Iteration 1/5
+[WARNING] Timeout occurred, retrying (1/2)...
+  ✓ [6/10] Multi-Signature Wallet [Iter 1] - 307.3s (gen: 307.26s)
+  ✓ [6/10] Multi-Signature Wallet [Iter 2] - 98.6s (gen: 98.6s)
+  ✓ [6/10] Multi-Signature Wallet [Iter 3] - 96.6s (gen: 96.62s)
+  ✓ [6/10] Multi-Signature Wallet [Iter 4] - 69.2s (gen: 69.17s)
+  ✓ [6/10] Multi-Signature Wallet [Iter 5] - 127.2s (gen: 127.16s)
+  ✓ [7/10] Auction Contract [Iter 1] - 110.0s (gen: 110.0s)
+  ✓ [7/10] Auction Contract [Iter 2] - 130.6s (gen: 130.59s)
+  ✓ [7/10] Auction Contract [Iter 3] - 102.1s (gen: 102.09s)
+  ✓ [7/10] Auction Contract [Iter 4] - 133.2s (gen: 133.19s)
+  ✓ [7/10] Auction Contract [Iter 5] - 124.8s (gen: 124.82s)
+  ✓ [8/10] Subscription Payment System [Iter 1] - 108.1s (gen: 108.11s)
+  ✓ [8/10] Subscription Payment System [Iter 2] - 98.8s (gen: 98.76s)
+⠋ [8/10] Subscription Payment System | Iteration 3/5
+[WARNING] Timeout occurred, retrying (1/2)...
+  ✓ [8/10] Subscription Payment System [Iter 3] - 333.7s (gen: 333.73s)
+  ✓ [8/10] Subscription Payment System [Iter 4] - 90.7s (gen: 90.73s)
+⠏ [8/10] Subscription Payment System | Iteration 5/5
+[WARNING] Timeout occurred, retrying (1/2)...
+⠦ [8/10] Subscription Payment System | Iteration 5/5
+[WARNING] Timeout occurred, retrying (2/2)...
+  ✓ [8/10] Subscription Payment System [Iter 5] - 530.3s (gen: 530.28s)
+  ✓ [9/10] Crowdfunding Contract [Iter 1] - 112.7s (gen: 112.67s)
+  ✓ [9/10] Crowdfunding Contract [Iter 2] - 63.7s (gen: 63.67s)
+  ✓ [9/10] Crowdfunding Contract [Iter 3] - 94.4s (gen: 94.4s)
+  ✓ [9/10] Crowdfunding Contract [Iter 4] - 74.5s (gen: 74.49s)
+  ✓ [9/10] Crowdfunding Contract [Iter 5] - 68.1s (gen: 68.05s)
+  ✓ [10/10] Role-Based Access Control [Iter 1] - 129.5s (gen: 129.46s)
+⠋ [10/10] Role-Based Access Control | Iteration 2/5
+[WARNING] Timeout occurred, retrying (1/2)...
+  ✓ [10/10] Role-Based Access Control [Iter 2] - 267.5s (gen: 267.5s)
+  ✓ [10/10] Role-Based Access Control [Iter 3] - 124.2s (gen: 124.19s)
+  ✓ [10/10] Role-Based Access Control [Iter 4] - 114.3s (gen: 114.32s)
+⠹ [10/10] Role-Based Access Control | Iteration 5/5
+[WARNING] Timeout occurred, retrying (1/2)...
+  ✓ [10/10] Role-Based Access Control [Iter 5] - 286.5s (gen: 286.54s)
+✓ Completed 50 contracts for qwen3:8b [10/10] Role-Based Access Control | Iteration 5/5
+
+[MODEL TIME] qwen3:8b: 5236.3s (87.3 minutes)
+
+================================================================================
+[MODEL] Processing: starcoder2:7b
+================================================================================
+
+  ✓ [1/10] Ownership and Access Control [Iter 1] - 10.2s (gen: 10.2s)
+⠸ [1/10] Ownership and Access Control | Iteration 2/5
+[WARNING] Timeout occurred, retrying (1/2)...
+⠇ [1/10] Ownership and Access Control | Iteration 2/5
+[WARNING] Timeout occurred, retrying (2/2)...
+  ✗ [1/10] Ownership and Access Control [Iter 2] - 550.1s (gen: 550.14s)
+  ...
+
+
+================================================================================
+                              SUMMARY
+================================================================================
+
+[STATISTICS]
+  Total prompts:              10
+  Successful generations:     399 + 150
+  Failed generations:         1
+  Generation success rate:    99.8%
+
+[TIMING]
+  Total execution time:       10495.4s + 4291.9s
+                              (174.9 minutes) + (71.5 minutes)
+
+[MODEL TIMES]
+  deepseek-coder:6.7b       462.2s (7.7 min)
+  granite4.1:8b             528.1s (8.8 min)
+  lfm2.5:8b                 772.5s (12.9 min)
+  llama3.1:8b               529.3s (8.8 min)
+  ministral-3:8b            743.9s (12.4 min)
+  qwen2.5-coder:7b          447.8s (7.5 min)
+  qwen3:8b                  5236.3s (87.3 min)
+  starcoder2:7b             1775.2s (29.6 min)
+
+  gemma3:27b                1681.7s (28.0 min)
+  gpt-oss:20b               1391.3s (23.2 min)
+  mistral-small:24b         1218.9s (20.3 min)
+================================================================================
+
+
+[SAVED] Results: output\generation_results.json
+[SAVED] Summary: output\generation_summary.json
