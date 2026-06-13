@@ -14,6 +14,8 @@ myth-files/
 RESULTS-archiv/
 # output-NEXT4-iteration/*/
 output/
+output_Apr_final/
+archive_June/
 
 
 .v-finetune1/

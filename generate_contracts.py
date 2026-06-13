@@ -11,19 +11,25 @@ from yaspin import yaspin
 from datetime import datetime
 
 # Configuration
-NUM_ITERATIONS = 4
+NUM_ITERATIONS = 5
 # MODELS = [
-#     "llama3.2:1b",
-#     # "gemma3:1b",
-#     # "deepseek-coder:1.3b"
-#     ]
+#     "deepseek-coder:6.7b",
+#     # "deepseek-r1:8b",
+#     "granite4.1:8b",
+#     "lfm2.5:8b",
+#     "llama3.1:8b",
+#     "ministral-3:8b",
+#     "qwen2.5-coder:7b",
+#     "qwen3:8b",
+#     "starcoder2:7b",
+# ]
 MODELS = [
-    "gpt-oss:20b",
     "gemma3:27b",
+    "gpt-oss:20b",
     "mistral-small:24b",
-    "llama3.1:8b",
-    "qwen2.5-coder:7b",
-    "deepseek-coder:6.7b"
+    # "llama3.1:8b",
+    # "qwen2.5-coder:7b",
+    # "deepseek-coder:6.7b"
     # "qwen2.5-coder:1.5b-instruct",
     # "smart-contract-model-FT:latest"
 ]

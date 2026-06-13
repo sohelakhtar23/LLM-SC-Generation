@@ -940,7 +940,8 @@ class RepairCompilation:
                     f"clean={ms['clean_contracts']}  "
                     f"H={ms['vulnerabilities']['High']} "
                     f"M={ms['vulnerabilities']['Medium']} "
-                    f"L={ms['vulnerabilities']['Low']}"
+                    f"L={ms['vulnerabilities']['Low']} "
+                    f"Avg_s={ms['avg_llm_time']:.1f}s"
                 )
         print("=" * 80 + "\n")
 
