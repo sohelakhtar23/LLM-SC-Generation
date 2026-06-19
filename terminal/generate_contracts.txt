@@ -126,8 +126,8 @@
 [STATISTICS]
   Total prompts:              10
   Successful generations:     399 + 150
-  Failed generations:         1
-  Generation success rate:    99.8%
+  Failed generations:         1 (from starcoder2: this model was discarded, so there was 100% success generation)
+  Generation success rate:    100%
 
 [TIMING]
   Total execution time:       10495.4s + 4291.9s

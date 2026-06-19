@@ -421,7 +421,7 @@ class CompilerAndAnalyzer:
             json.dump(self.compilation_results, f, indent=2)
         print(f"[SAVED] Compilation results: {compilation_path}")
         
-        analysis_path = os.path.join(self.output_dir, "final_analysis.json")
+        analysis_path = os.path.join(self.output_dir, "cp_analysis.json")
         with open(analysis_path, 'w', encoding='utf-8') as f:
             json.dump({
                 "analysis_timestamp": datetime.now().isoformat(),
@@ -433,7 +433,7 @@ class CompilerAndAnalyzer:
 
     def generate_summary_report(self) -> None:
         """Generate human-readable summary reports."""
-        detailed_path = os.path.join(self.output_dir, "detailed_summary.txt")
+        detailed_path = os.path.join(self.output_dir, "cp_detailed_summary.txt")
         with open(detailed_path, 'w', encoding='utf-8') as f:
             f.write("=" * 80 + "\n")
             f.write(" " * 25 + "FINAL ANALYSIS SUMMARY\n")
@@ -532,7 +532,7 @@ class CompilerAndAnalyzer:
         print(f"[SAVED] Detailed summary: {detailed_path}")
         
         # Quick summary
-        quick_path = os.path.join(self.output_dir, "quick_summary.txt")
+        quick_path = os.path.join(self.output_dir, "cp_quick_summary.txt")
         with open(quick_path, 'w', encoding='utf-8') as f:
             f.write("=" * 80 + "\n")
             f.write(" " * 25 + " QUICK SUMMARY\n")
