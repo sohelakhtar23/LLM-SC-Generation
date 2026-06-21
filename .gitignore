@@ -23,3 +23,6 @@ archive_June/
 
 fine-tuning/unsloth_compiled_cache/
 fine-tuning/compare-results-FT-Apr28/
+
+.venv-wsl/
+.env

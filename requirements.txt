@@ -4,11 +4,11 @@ requests
 slither-analyzer
 solc-select
 
-
-# matplotlib
-# seaborn
-
 # web3
 # py-solc-x
-
 # mythril --> on Docker, for Windows
+
+
+# === wsl packages ===
+# openai
+# python-dotenv
