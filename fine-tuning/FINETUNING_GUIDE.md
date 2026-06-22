@@ -8,18 +8,16 @@ This guide explains how to create a high-quality fine-tuning dataset from your s
 
 1. [Fine-Tuning Dataset Strategy](#fine-tuning-dataset-strategy)
 2. [Dataset Creation Pipeline](#dataset-creation-pipeline)
-3. [Code Modifications (Optional)](#code-modifications-optional)
-4. [Dataset Quality Filters](#dataset-quality-filters)
-5. [Fine-Tuning Recommendations](#fine-tuning-recommendations)
-6. [Evaluation Strategy](#evaluation-strategy)
+3. [Dataset Quality Filters](#dataset-quality-filters)
+4. [Fine-Tuning Recommendations](#fine-tuning-recommendations)
+5. [Evaluation Strategy](#evaluation-strategy)
 
 ---
 
 ## Fine-Tuning Dataset Strategy
 
 ### Three Task Types
-
-Your dataset will contain three types of instruction-response pairs:
+The dataset will contain 3 types of instruction-response pairs:
 
 #### 1. **Contract Generation** (from `generate_contracts.py`)
 ```
@@ -29,7 +27,6 @@ Output: Clean, secure contract
 
 Quality Criteria:
 ✓ Compiled successfully
-✓ Zero (or very few) malign vulnerabilities
 ✓ High-quality code
 ```
 
@@ -54,53 +51,23 @@ Output: Secure contract
 Quality Criteria:
 ✓ Repaired contract compiles
 ✓ Reduced vulnerability count (ideally to 0)
-✓ Demonstrates security best practices
 ```
 
 ### Dataset Format
-
-The script creates datasets in **three formats**:
-
-1. **JSONL** (recommended for most frameworks):
+**JSONL** (recommended for most frameworks):
 ```jsonl
 {"task_type": "generation", "instruction": "...", "input": "...", "output": "...", "metadata": {...}}
 {"task_type": "compilation_repair", "instruction": "...", "input": "...", "output": "...", "metadata": {...}}
-```
-
-2. **Alpaca format** (for Alpaca/LLaMA-style training):
-```json
-[
-  {
-    "instruction": "You are an expert Solidity developer...",
-    "input": "Task: ERC20 Token\n\nSpecification: ...",
-    "output": "// SPDX-License-Identifier...",
-    "metadata": {...}
-  }
-]
-```
-
-3. **Chat format** (for ChatML/messages-based training):
-```json
-[
-  {
-    "messages": [
-      {"role": "system", "content": "You are an expert..."},
-      {"role": "user", "content": "Task: ..."},
-      {"role": "assistant", "content": "contract code..."}
-    ],
-    "metadata": {...}
-  }
-]
 ```
 
 ---
 
 ## Dataset Creation Pipeline
 
-### Current Implementation (No Code Changes Needed!)
+### Current Implementation
 
 ```bash
-# Step 1: Run all experiments (you've already done this)
+# Step 1: Run all experiments
 python generate_contracts.py
 python compile_and_analyze.py
 python repair_compilation.py
@@ -128,10 +95,8 @@ python create_finetuning_dataset.py
    - Calculates quality scores based on vulnerability counts
    - Filters by minimum quality threshold (default: 0.7)
 
-4. **Exports in multiple formats**:
+4. **Exports dataset**:
    - `dataset.jsonl` - Full dataset
-   - `dataset_alpaca.json` - Alpaca format
-   - `dataset_chat.json` - Chat/ChatML format
    - `dataset_generation.jsonl` - Only generation examples
    - `dataset_compilation_repair.jsonl` - Only compilation repair
    - `dataset_vulnerability_repair.jsonl` - Only vulnerability repair
@@ -142,8 +107,6 @@ python create_finetuning_dataset.py
 ```
 finetuning_dataset/
 ├── dataset.jsonl                          # Full dataset (all tasks)
-├── dataset_alpaca.json                    # Alpaca format
-├── dataset_chat.json                      # Chat/messages format
 ├── dataset_generation.jsonl               # Only generation examples
 ├── dataset_compilation_repair.jsonl       # Only compilation repair
 ├── dataset_vulnerability_repair.jsonl     # Only vulnerability repair
@@ -389,10 +352,10 @@ tokenizer.save_pretrained("smart-contract-model")
 
 ### 1. Quantitative Metrics
 
-Compare your fine-tuned model vs base model using **the same pipeline**:
+Compare fine-tuned model vs base model using **the same pipeline**:
 
 ```bash
-# Modify generate_contracts.py to use your fine-tuned model
+# Modify generate_contracts.py to use fine-tuned model
 MODELS = ["your-finetuned-model:latest"]
 
 # Run full pipeline

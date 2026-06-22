@@ -1,8 +1,19 @@
 """
 FT_model_creation.py — Fine-tuning script for smart contract generation
-Model  : Qwen/Qwen2.5-Coder-1.5B-Instruct
-Method : LoRA via Unsloth + TRL SFTTrainer
-Dataset: FT_dataset/dataset.jsonl  (produced by create_finetuning_dataset.py)
+Models  : Qwen/Qwen2.5-Coder-0.5B-Instruct    (Qwen ChatML template)
+          ibm-granite/granite-4.0-1b            (Granite 4.0 role template)
+          meta-llama/Llama-3.2-1B-Instruct      (Llama-3 header template)
+Method  : LoRA via Unsloth + TRL SFTTrainer
+Dataset : FT_dataset/dataset.jsonl  (produced by create_finetuning_dataset.py)
+
+Usage:
+    # Fine-tune all three models sequentially
+    python FT_model_creation.py
+
+    # Fine-tune a specific model only
+    python FT_model_creation.py --model qwen
+    python FT_model_creation.py --model granite
+    python FT_model_creation.py --model llama
 """
 
 import os
@@ -10,27 +21,50 @@ import json
 import random
 import argparse
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
-import unsloth
 import torch
 from datasets import Dataset
 from transformers import TrainingArguments
 from trl import SFTTrainer
 from unsloth import FastLanguageModel
 
-# ── Configuration ──────────────────────────────────────────────────────────────
+# ── Model registry ─────────────────────────────────────────────────────────────
+#
+# chat_template values:
+#   "qwen"     — <|im_start|>/<|im_end|>                    (Qwen2.5-Instruct)
+#   "granite4" — <|start_of_role|>/<|end_of_role|>/<|end_of_text|>  (Granite 4.0)
+#   "llama3"   — <|begin_of_text|> / header_id / eot_id     (Llama 3.x)
+#
+MODELS = {
+    "qwen": {
+        "hf_id":         "Qwen/Qwen2.5-Coder-0.5B-Instruct",
+        "short_name":    "Qwen2.5-Coder-0.5B",
+        "chat_template": "qwen",
+    },
+    "granite": {
+        "hf_id":         "ibm-granite/granite-4.0-1b",
+        "short_name":    "Granite-4.0-1B",
+        "chat_template": "granite4",
+    },
+    "llama": {
+        "hf_id":         "meta-llama/Llama-3.2-1B-Instruct",
+        "short_name":    "Llama-3.2-1B",
+        "chat_template": "llama3",
+    },
+}
 
-MODEL_NAME      = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+# ── Shared training configuration ──────────────────────────────────────────────
+
 MAX_SEQ_LENGTH  = 4096
-LOAD_IN_4BIT    = True          # QLoRA — keeps VRAM low on ≤16 GB GPUs
+LOAD_IN_4BIT    = True       # QLoRA — keeps VRAM low on ≤16 GB GPUs
 
 # LoRA
 LORA_R          = 16
 LORA_ALPHA      = 16
 LORA_DROPOUT    = 0
 TARGET_MODULES  = ["q_proj", "k_proj", "v_proj", "o_proj",
-                   "gate_proj", "up_proj", "down_proj"]  # include MLP layers
+                   "gate_proj", "up_proj", "down_proj"]
 
 # Training
 BATCH_SIZE              = 2
@@ -40,23 +74,17 @@ LEARNING_RATE           = 2e-4
 WARMUP_STEPS            = 50
 LOGGING_STEPS           = 10
 SAVE_STEPS              = 100
-VAL_SPLIT               = 0.05  # 5% held out for validation
+VAL_SPLIT               = 0.05  # 5 % held out for validation
 
 # Paths
-DATASET_PATH    = "FT_dataset/dataset.jsonl"
-OUTPUT_DIR      = "outputs"
-MODEL_SAVE_DIR  = "smart-contract-model"
+DATASET_PATH = "FT_dataset/dataset.jsonl"
 
-# Chat template tokens (ChatML — matches Qwen2.5-Instruct)
-BOS = "<|im_start|>"
-EOS = "<|im_end|>"
 
-# ── Prompt formatter ───────────────────────────────────────────────────────────
+# ── Chat template formatters ───────────────────────────────────────────────────
 
-def format_prompt(example: Dict) -> Dict[str, str]:
+def format_qwen(example: Dict) -> Dict[str, str]:
     """
-    Convert a dataset example to a single training string using the ChatML
-    format that Qwen2.5-Instruct was trained with.
+    Qwen ChatML format — used by Qwen2.5-Coder-0.5B-Instruct.
 
     Structure:
         <|im_start|>system
@@ -67,18 +95,75 @@ def format_prompt(example: Dict) -> Dict[str, str]:
         {output}<|im_end|>
     """
     text = (
-        f"{BOS}system\n{example['instruction']}{EOS}\n"
-        f"{BOS}user\n{example['input']}{EOS}\n"
-        f"{BOS}assistant\n{example['output']}{EOS}"
+        f"<|im_start|>system\n{example['instruction']}<|im_end|>\n"
+        f"<|im_start|>user\n{example['input']}<|im_end|>\n"
+        f"<|im_start|>assistant\n{example['output']}<|im_end|>"
     )
     return {"text": text}
 
+
+def format_granite4(example: Dict) -> Dict[str, str]:
+    """
+    Granite 4.0 role format — used by ibm-granite/granite-4.0-1b.
+
+    Verified from official model card expected output:
+        <|start_of_role|>system<|end_of_role|>{instruction}<|end_of_text|>
+        <|start_of_role|>user<|end_of_role|>{input}<|end_of_text|>
+        <|start_of_role|>assistant<|end_of_role|>{output}<|end_of_text|>
+
+    Note: this is NOT ChatML — Granite 4.0 uses its own distinct role tokens.
+    """
+    text = (
+        f"<|start_of_role|>system<|end_of_role|>{example['instruction']}<|end_of_text|>"
+        f"<|start_of_role|>user<|end_of_role|>{example['input']}<|end_of_text|>"
+        f"<|start_of_role|>assistant<|end_of_role|>{example['output']}<|end_of_text|>"
+    )
+    return {"text": text}
+
+
+def format_llama3(example: Dict) -> Dict[str, str]:
+    """
+    Llama-3 header format — used by Llama-3.2-1B-Instruct (and all Llama 3.x).
+
+    Structure:
+        <|begin_of_text|>
+        <|start_header_id|>system<|end_header_id|>
+        {instruction}<|eot_id|>
+        <|start_header_id|>user<|end_header_id|>
+        {input}<|eot_id|>
+        <|start_header_id|>assistant<|end_header_id|>
+        {output}<|eot_id|>
+    """
+    text = (
+        "<|begin_of_text|>"
+        "<|start_header_id|>system<|end_header_id|>\n"
+        f"{example['instruction']}<|eot_id|>"
+        "<|start_header_id|>user<|end_header_id|>\n"
+        f"{example['input']}<|eot_id|>"
+        "<|start_header_id|>assistant<|end_header_id|>\n"
+        f"{example['output']}<|eot_id|>"
+    )
+    return {"text": text}
+
+
+FORMATTERS = {
+    "qwen":     format_qwen,
+    "granite4": format_granite4,
+    "llama3":   format_llama3,
+}
+
+
 # ── Data loading ───────────────────────────────────────────────────────────────
 
-def load_dataset(path: str, val_split: float = VAL_SPLIT,
-                 seed: int = 42) -> tuple[Dataset, Optional[Dataset]]:
+def load_dataset_split(
+    path: str,
+    formatter,
+    val_split: float = VAL_SPLIT,
+    seed: int = 42,
+) -> Tuple[Dataset, Optional[Dataset]]:
     """
-    Load JSONL dataset, format prompts, and split into train / validation.
+    Load JSONL dataset, apply the model-specific chat template formatter,
+    filter oversized examples, shuffle, and split into train / validation.
     """
     print(f"[DATA] Loading dataset from {path} ...")
     if not os.path.exists(path):
@@ -87,9 +172,8 @@ def load_dataset(path: str, val_split: float = VAL_SPLIT,
             "Run create_finetuning_dataset.py first."
         )
 
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, "r", encoding="utf-8") as f:
         raw = [json.loads(line) for line in f if line.strip()]
-
     print(f"[DATA] {len(raw)} total examples loaded")
 
     # Log task distribution
@@ -97,14 +181,14 @@ def load_dataset(path: str, val_split: float = VAL_SPLIT,
     for ex in raw:
         t = ex.get("task_type", "unknown")
         task_counts[t] = task_counts.get(t, 0) + 1
-    for task, count in task_counts.items():
-        print(f"  {task:30} {count:5} ({count/len(raw)*100:.1f}%)")
+    for task, count in sorted(task_counts.items()):
+        print(f"  {task:30} {count:5d} ({count / len(raw) * 100:.1f}%)")
 
-    # Format prompts
-    formatted = [format_prompt(ex) for ex in raw]
+    # Apply formatter
+    formatted = [formatter(ex) for ex in raw]
 
-    # Filter out examples that exceed max sequence length
-    # (rough token estimate: ~3 chars per token)
+    # Filter examples that would exceed max sequence length
+    # (rough estimate: ~3 chars per token)
     char_limit = MAX_SEQ_LENGTH * 3
     before = len(formatted)
     formatted = [ex for ex in formatted if len(ex["text"]) <= char_limit]
@@ -122,56 +206,60 @@ def load_dataset(path: str, val_split: float = VAL_SPLIT,
         val_raw   = formatted[:val_size]
         print(f"[DATA] Train: {len(train_raw)}  |  Validation: {len(val_raw)}\n")
         return Dataset.from_list(train_raw), Dataset.from_list(val_raw)
-    else:
-        print(f"[DATA] Train: {len(formatted)}  |  No validation split\n")
-        return Dataset.from_list(formatted), None
+
+    print(f"[DATA] Train: {len(formatted)}  |  No validation split\n")
+    return Dataset.from_list(formatted), None
+
 
 # ── Model loading ──────────────────────────────────────────────────────────────
 
-def load_model():
+def load_model(hf_id: str):
     """Load base model and attach LoRA adapters via Unsloth."""
-    print(f"[MODEL] Loading {MODEL_NAME} ...")
+    print(f"[MODEL] Loading {hf_id} ...")
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name     = MODEL_NAME,
+        model_name     = hf_id,
         max_seq_length = MAX_SEQ_LENGTH,
-        dtype          = None,          # auto-detect (bf16 on Ampere+, fp16 otherwise)
+        dtype          = None,      # auto-detect: bf16 on Ampere+, fp16 otherwise
         load_in_4bit   = LOAD_IN_4BIT,
     )
 
     print("[MODEL] Attaching LoRA adapters ...")
     model = FastLanguageModel.get_peft_model(
         model,
-        r                   = LORA_R,
-        target_modules      = TARGET_MODULES,
-        lora_alpha          = LORA_ALPHA,
-        lora_dropout        = LORA_DROPOUT,
-        bias                = "none",
-        use_gradient_checkpointing = "unsloth",  # Unsloth's optimised checkpointing
-        random_state        = 42,
+        r                          = LORA_R,
+        target_modules             = TARGET_MODULES,
+        lora_alpha                 = LORA_ALPHA,
+        lora_dropout               = LORA_DROPOUT,
+        bias                       = "none",
+        use_gradient_checkpointing = "unsloth",
+        random_state               = 42,
     )
 
-    # Print trainable parameter count
-    total_params     = sum(p.numel() for p in model.parameters())
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"[MODEL] Trainable parameters: {trainable_params:,} / {total_params:,} "
-          f"({100 * trainable_params / total_params:.2f}%)\n")
+    total     = sum(p.numel() for p in model.parameters())
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"[MODEL] Trainable params: {trainable:,} / {total:,} "
+          f"({100 * trainable / total:.2f}%)\n")
 
     return model, tokenizer
 
-# ── Training ───────────────────────────────────────────────────────────────────
 
-def build_trainer(model, tokenizer, train_dataset: Dataset,
-                  val_dataset: Optional[Dataset]) -> SFTTrainer:
+# ── Trainer construction ───────────────────────────────────────────────────────
+
+def build_trainer(
+    model,
+    tokenizer,
+    train_dataset: Dataset,
+    val_dataset: Optional[Dataset],
+    checkpoint_dir: str,
+) -> SFTTrainer:
     """Construct the SFTTrainer."""
 
-    # Use bf16 if available (Ampere/Ada GPUs), otherwise fp16
     use_bf16 = torch.cuda.is_bf16_supported()
     use_fp16 = not use_bf16
-
     run_name = f"sc-finetune-{datetime.now().strftime('%Y%m%d_%H%M')}"
 
     training_args = TrainingArguments(
-        output_dir                  = OUTPUT_DIR,
+        output_dir                  = checkpoint_dir,
         run_name                    = run_name,
         per_device_train_batch_size = BATCH_SIZE,
         gradient_accumulation_steps = GRADIENT_ACCUMULATION,
@@ -182,39 +270,122 @@ def build_trainer(model, tokenizer, train_dataset: Dataset,
         fp16                        = use_fp16,
         logging_steps               = LOGGING_STEPS,
         save_steps                  = SAVE_STEPS,
-        save_total_limit            = 3,        # keep last 3 checkpoints only
-        eval_strategy = "steps" if val_dataset else "no",
+        save_total_limit            = 3,
+        eval_strategy               = "steps" if val_dataset else "no",
         eval_steps                  = SAVE_STEPS if val_dataset else None,
         load_best_model_at_end      = bool(val_dataset),
         optim                       = "adamw_8bit",
         lr_scheduler_type           = "cosine",
-        report_to                   = "none",   # set to "wandb" if you use W&B
+        report_to                   = "none",   # set to "wandb" to enable W&B
         seed                        = 42,
     )
 
     trainer = SFTTrainer(
-        model               = model,
-        tokenizer           = tokenizer,
-        train_dataset       = train_dataset,
-        eval_dataset        = val_dataset,
-        dataset_text_field  = "text",
-        max_seq_length      = MAX_SEQ_LENGTH,
-        packing             = False,    # disable packing — contracts vary greatly in length
-        args                = training_args,
+        model              = model,
+        tokenizer          = tokenizer,
+        train_dataset      = train_dataset,
+        eval_dataset       = val_dataset,
+        dataset_text_field = "text",
+        max_seq_length     = MAX_SEQ_LENGTH,
+        packing            = False,   # disabled — contracts vary greatly in length
+        args               = training_args,
     )
 
     return trainer
 
+
+# ── Single-model pipeline ──────────────────────────────────────────────────────
+
+def run_single_model(
+    model_key: str,
+    dataset_path: str,
+    no_val: bool = False,
+) -> None:
+    """Run the full fine-tuning pipeline for one model."""
+
+    cfg        = MODELS[model_key]
+    hf_id      = cfg["hf_id"]
+    short_name = cfg["short_name"]
+    formatter  = FORMATTERS[cfg["chat_template"]]
+
+    checkpoint_dir = f"checkpoints/FT-{short_name}"
+    model_save_dir = f"FT-models/FT-{short_name}"
+
+    print("\n" + "=" * 70)
+    print(f"  Model       : {hf_id}")
+    print(f"  Short name  : {short_name}")
+    print(f"  Template    : {cfg['chat_template']}")
+    print(f"  Dataset     : {dataset_path}")
+    print(f"  Epochs      : {NUM_EPOCHS}")
+    print(f"  LR          : {LEARNING_RATE}")
+    print(f"  LoRA r / α  : {LORA_R} / {LORA_ALPHA}")
+    print(f"  4-bit QLoRA : {LOAD_IN_4BIT}")
+    print(f"  Checkpoints : {checkpoint_dir}")
+    print(f"  Output      : {model_save_dir}")
+    print("=" * 70 + "\n")
+
+    # 1. Load dataset
+    val_split = 0.0 if no_val else VAL_SPLIT
+    train_dataset, val_dataset = load_dataset_split(
+        dataset_path, formatter, val_split=val_split
+    )
+
+    # 2. Load model
+    model, tokenizer = load_model(hf_id)
+
+    # 3. Build trainer
+    trainer = build_trainer(
+        model, tokenizer, train_dataset, val_dataset, checkpoint_dir
+    )
+
+    # 4. Train
+    print("[TRAIN] Starting training ...\n")
+    result = trainer.train()
+    print("\n[TRAIN] Training complete.")
+    print(f"  Training loss : {result.training_loss:.4f}")
+    print(f"  Total steps   : {result.global_step}")
+    print(f"  Runtime       : {result.metrics.get('train_runtime', 0):.1f}s")
+
+    # 5. Save
+    print(f"\n[SAVE] Saving model to {model_save_dir} ...")
+    model.save_pretrained(model_save_dir)
+    tokenizer.save_pretrained(model_save_dir)
+    print(f"[SAVE] Done.\n")
+
+    print("=" * 70)
+    print(f"[SUCCESS] {short_name} fine-tuning complete!")
+    print(f"          Model saved to : {model_save_dir}/")
+    print(f"          Checkpoints in : {checkpoint_dir}/")
+    print("=" * 70 + "\n")
+
+    # Free VRAM before loading the next model
+    del model, tokenizer, trainer
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Fine-tune smart contract generation model")
-    parser.add_argument("--dataset",    default=DATASET_PATH, help="Path to dataset.jsonl")
-    parser.add_argument("--output-dir", default=OUTPUT_DIR,   help="Checkpoint output directory")
-    parser.add_argument("--save-dir",   default=MODEL_SAVE_DIR, help="Final model save directory")
-    parser.add_argument("--epochs",     type=int,   default=NUM_EPOCHS,    help="Training epochs")
-    parser.add_argument("--lr",         type=float, default=LEARNING_RATE, help="Learning rate")
-    parser.add_argument("--no-val",     action="store_true", help="Skip validation split")
+    parser = argparse.ArgumentParser(
+        description="Fine-tune smart contract generation models (Qwen, Granite, Llama)"
+    )
+    parser.add_argument(
+        "--model",
+        choices=list(MODELS.keys()) + ["all"],
+        default="all",
+        help="Which model to fine-tune. 'all' runs all three sequentially (default).",
+    )
+    parser.add_argument(
+        "--dataset",
+        default=DATASET_PATH,
+        help="Path to dataset.jsonl",
+    )
+    parser.add_argument(
+        "--no-val",
+        action="store_true",
+        help="Skip validation split",
+    )
     return parser.parse_args()
 
 
@@ -222,46 +393,25 @@ def main():
     args = parse_args()
 
     print("=" * 70)
-    print(" " * 15 + "SMART CONTRACT MODEL FINE-TUNING")
+    print(" " * 12 + "SMART CONTRACT MODEL FINE-TUNING")
     print("=" * 70)
-    print(f"  Model       : {MODEL_NAME}")
-    print(f"  Dataset     : {args.dataset}")
-    print(f"  Epochs      : {args.epochs}")
-    print(f"  LR          : {args.lr}")
-    print(f"  LoRA r / α  : {LORA_R} / {LORA_ALPHA}")
-    print(f"  4-bit QLoRA : {LOAD_IN_4BIT}")
-    print(f"  Output      : {args.output_dir}")
-    print("=" * 70 + "\n")
 
-    # ── 1. Load dataset ────────────────────────────────────────────────────────
-    val_split = 0.0 if args.no_val else VAL_SPLIT
-    train_dataset, val_dataset = load_dataset(args.dataset, val_split=val_split)
-
-    # ── 2. Load model ──────────────────────────────────────────────────────────
-    model, tokenizer = load_model()
-
-    # ── 3. Build trainer ───────────────────────────────────────────────────────
-    trainer = build_trainer(model, tokenizer, train_dataset, val_dataset)
-
-    # ── 4. Train ───────────────────────────────────────────────────────────────
-    print("[TRAIN] Starting training ...\n")
-    train_result = trainer.train()
-
-    print("\n[TRAIN] Training complete.")
-    print(f"  Training loss     : {train_result.training_loss:.4f}")
-    print(f"  Total steps       : {train_result.global_step}")
-    print(f"  Total time        : {train_result.metrics.get('train_runtime', 0):.1f}s")
-
-    # ── 5. Save final model ────────────────────────────────────────────────────
-    print(f"\n[SAVE] Saving model to {args.save_dir} ...")
-    model.save_pretrained(args.save_dir)
-    tokenizer.save_pretrained(args.save_dir)
-    print(f"[SAVE] Done.\n")
-
+    targets: List[str] = (
+        list(MODELS.keys()) if args.model == "all" else [args.model]
+    )
+    print(f"  Models to fine-tune : {', '.join(targets)}")
+    print(f"  Dataset             : {args.dataset}")
     print("=" * 70)
-    print("[SUCCESS] Fine-tuning complete!")
-    print(f"          Model saved to : {args.save_dir}/")
-    print(f"          Checkpoints in : {args.output_dir}/")
+
+    for model_key in targets:
+        run_single_model(
+            model_key    = model_key,
+            dataset_path = args.dataset,
+            no_val       = args.no_val,
+        )
+
+    print("\n" + "=" * 70)
+    print(f"[DONE] All {len(targets)} model(s) fine-tuned successfully.")
     print("=" * 70)
 
 

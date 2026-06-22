@@ -1,10 +1,6 @@
-#!/usr/bin/env python3
 """
 RQ3/RQ4 Pipeline: Functional Correctness and Gas Efficiency
 Run inside WSL. Requirements: pip install openai
-
-Usage:
-    python3 rq3_pipeline.py --output_dir /path/to/output --openai_key sk-...
 """
 
 import argparse
@@ -347,7 +343,6 @@ def run_pipeline(output_dir: Path, openai_key: str):
     scores_rows = []
     gas_rows    = []
     failures    = []
-
     total = compiled_count = processed = 0
 
     # ── TEMP: limit to N contracts for a quick test run ────────────────────
@@ -398,14 +393,8 @@ def run_pipeline(output_dir: Path, openai_key: str):
                 # ── Place in Foundry and build ─────────────────────────────────
                 place_files(foundry_dir, sol_path, contract_name, test_code)
 
-                # # DEBUG — remove after fixing
-                # print(f"  [debug] foundry_dir = {foundry_dir.resolve()}")
-                # print(f"  [debug] src/  -> {[p.name for p in (foundry_dir / 'src').glob('*.sol')]}")
-                # print(f"  [debug] test/ -> {[p.name for p in (foundry_dir / 'test').glob('*.sol')]}")
-
                 rc, build_stdout, build_err = run(["forge", "build", "--force"], cwd=foundry_dir)
-                # print(f"  [debug] forge build rc={rc}")
-                # print(f"  [debug] build stdout (first 500 chars):\n{build_stdout[:500]}")
+
                 if rc != 0:
                     print(f"  [fail] forge build")
                     failures.append({"model": model_name, "exercise": exercise, "iter": iter_num, "reason": "build_failed", "error": build_err[:300]})
@@ -413,15 +402,7 @@ def run_pipeline(output_dir: Path, openai_key: str):
                     continue
 
                 # ── Run tests ─────────────────────────────────────────────────
-                # rc, test_stdout, _ = run(["forge", "test", "--json", "-vv"], cwd=foundry_dir)
-                # test_results = parse_test_results(test_stdout)
-
                 rc, test_stdout, test_stderr = run(["forge", "test", "--json", "-vv", "--force"], cwd=foundry_dir)
-
-                # # DEBUG — remove after fixing
-                # print(f"  [debug] forge test rc={rc}")
-                # print(f"  [debug] stdout (first 1000 chars):\n{test_stdout[:1000]}")
-                # print(f"  [debug] stderr (first 500 chars):\n{test_stderr[:500]}")
 
                 test_results = parse_test_results(test_stdout)
                 # print(f"  [debug] parsed test_results: {test_results}")
@@ -469,12 +450,12 @@ def run_pipeline(output_dir: Path, openai_key: str):
                         })
 
                 processed += 1
-                # break
 
             if TEST_LIMIT and processed >= TEST_LIMIT:
                 break
         if TEST_LIMIT and processed >= TEST_LIMIT:
             break
+
 
     # ── Write outputs ─────────────────────────────────────────────────────────
     _write_csv(scores_rows, rq3_dir / "rq3_scores.csv")

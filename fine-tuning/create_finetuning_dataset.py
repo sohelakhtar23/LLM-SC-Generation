@@ -5,6 +5,7 @@ import re
 from typing import Dict, List, Any, Tuple
 from collections import defaultdict
 from datetime import datetime
+import pandas as pd
 
 # Add the parent directory to sys.path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -79,29 +80,27 @@ class DatasetBuilder:
         print(f"  ✓ Loaded generation_summary.json")
         
         # Compilation repair results (optional)
-        repair_comp_path = os.path.join(self.output_dir, "repair_cp_results_final.json")
+        repair_comp_path = os.path.join(self.output_dir, "repair_cp_results.json")
         if os.path.exists(repair_comp_path):
             with open(repair_comp_path, 'r', encoding='utf-8') as f:
                 self.repair_compilation_results = json.load(f)
-            print(f"  ✓ Loaded repair_cp_results_final.json")
+            print(f"  ✓ Loaded repair_cp_results.json")
         else:
-            print(f"  ⚠ repair_cp_results_final.json not found (skipping compilation repair examples)")
+            print(f"  ⚠ repair_cp_results.json not found (skipping compilation repair examples)")
         
         # Vulnerability repair results (optional)
-        repair_vuln_path = os.path.join(self.output_dir, "repair_vul_results_final.json")
+        repair_vuln_path = os.path.join(self.output_dir, "repair_vul_results.json")
         if os.path.exists(repair_vuln_path):
             with open(repair_vuln_path, 'r', encoding='utf-8') as f:
                 self.repair_vulnerability_results = json.load(f)
-            print(f"  ✓ Loaded repair_vul_results_final.json")
+            print(f"  ✓ Loaded repair_vul_results.json")
         else:
-            print(f"  ⚠ repair_vul_results_final.json not found (skipping vulnerability repair examples)")
-        
+            print(f"  ⚠ repair_vul_results.json not found (skipping vulnerability repair examples)")
         print()
+
 
     def load_specifications(self, dataset_path: str) -> None:
         """Load specifications from CSV."""
-        import pandas as pd
-        
         print(f"[LOAD] Reading specifications from {dataset_path}...")
         if not os.path.exists(dataset_path):
             raise FileNotFoundError(f"Dataset CSV not found: {dataset_path}")
@@ -111,7 +110,6 @@ class DatasetBuilder:
             task = df.iat[i, 0]
             spec = df.iat[i, 1]
             self.spec_lookup[task] = spec
-        
         print(f"  ✓ Loaded {len(self.spec_lookup)} specifications\n")
 
     # ── Vulnerability Extraction ────────────────────────────────────────────────
@@ -128,7 +126,6 @@ class DatasetBuilder:
             count = stderr_lower.count(vuln_url.lower())
             if count > 0:
                 vulnerabilities.extend([vuln_type] * count)
-        
         return vulnerabilities
 
     def count_malign_vulnerabilities(self, vulnerabilities: List[str]) -> int:
@@ -230,6 +227,7 @@ class DatasetBuilder:
         print(f"  ✓ Collected {self.stats['generation']['used']} generation examples "
               f"({self.stats['generation']['high_quality']} high-quality / "
               f"{self.stats['generation']['total']} total)\n")
+
 
     def collect_compilation_repair_examples(self) -> None:
         """Collect successful compilation repair examples."""
@@ -338,6 +336,7 @@ class DatasetBuilder:
         print(f"  ✓ Collected {self.stats['compilation_repair']['used']} compilation repair examples "
               f"({self.stats['compilation_repair']['high_quality']} high-quality / "
               f"{self.stats['compilation_repair']['total']} total)\n")
+
 
     def collect_vulnerability_repair_examples(self) -> None:
         """Collect successful vulnerability repair examples."""
@@ -453,8 +452,7 @@ class DatasetBuilder:
         """Export dataset in multiple formats."""
         os.makedirs(self.dataset_dir, exist_ok=True)
         
-        print(f"[EXPORT] Saving dataset to {self.dataset_dir}/")
-        
+        print(f"[EXPORT] Saving dataset to {self.dataset_dir}/")        
         # 1. JSONL format (one example per line)
         if "jsonl" in formats:
             jsonl_path = os.path.join(self.dataset_dir, "dataset.jsonl")
@@ -462,9 +460,7 @@ class DatasetBuilder:
                 for example in self.examples:
                     f.write(json.dumps(example, ensure_ascii=False) + "\n")
             print(f"  ✓ Saved JSONL format: {jsonl_path}")
-        
-        
-        
+
         # 2. Split by task type
         task_splits = defaultdict(list)
         for example in self.examples:
@@ -475,9 +471,9 @@ class DatasetBuilder:
             with open(task_path, 'w', encoding='utf-8') as f:
                 for example in examples:
                     f.write(json.dumps(example, ensure_ascii=False) + "\n")
-            print(f"  ✓ Saved {task_type} split: {task_path} ({len(examples)} examples)")
-        
+            print(f"  ✓ Saved {task_type} split: {task_path} ({len(examples)} examples)")  
         print()
+
 
     def export_statistics(self) -> None:
         """Export dataset statistics and quality report."""
@@ -512,8 +508,7 @@ class DatasetBuilder:
         }
         
         with open(stats_path, 'w', encoding='utf-8') as f:
-            json.dump(statistics, f, indent=2, ensure_ascii=False)
-        
+            json.dump(statistics, f, indent=2, ensure_ascii=False)        
         print(f"[EXPORT] Statistics saved to {stats_path}\n")
         
         # Print summary to console
@@ -540,8 +535,7 @@ class DatasetBuilder:
         for task_type, counts in self.stats.items():
             if counts['total'] > 0:
                 efficiency = (counts['used'] / counts['total']) * 100
-                print(f"  {task_type:25} {counts['used']:4}/{counts['total']:4} used ({efficiency:5.1f}%)")
-        
+                print(f"  {task_type:25} {counts['used']:4}/{counts['total']:4} used ({efficiency:5.1f}%)")        
         print("=" * 80 + "\n")
 
     # ── Main Pipeline ───────────────────────────────────────────────────────────

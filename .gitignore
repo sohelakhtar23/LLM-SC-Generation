@@ -10,7 +10,7 @@ output(2nd_)
 venv-wsl/
 temp/
 
-myth-files/
+temp-sol-files/
 RESULTS-archiv/
 # output-NEXT4-iteration/*/
 output/

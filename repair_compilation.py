@@ -96,6 +96,7 @@ class RepairCompilation:
         print(f"[LOAD] {len(self.spec_lookup)} specifications loaded from CSV")
         print(f"[LOAD] {len(self.compilation_results)} model(s) found in compilation results\n")
 
+
     def identify_failed_contracts(self) -> None:
         """
         Walk through compilation_results.json and collect every contract whose compilation.success == False. 
