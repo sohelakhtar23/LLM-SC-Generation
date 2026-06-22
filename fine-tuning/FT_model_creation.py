@@ -23,11 +23,11 @@ import argparse
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
+from unsloth import FastLanguageModel
 import torch
 from datasets import Dataset
 from transformers import TrainingArguments
-from trl import SFTTrainer
-from unsloth import FastLanguageModel
+from trl import SFTTrainer, SFTConfig
 
 # ── Model registry ─────────────────────────────────────────────────────────────
 #
@@ -245,20 +245,56 @@ def load_model(hf_id: str):
 
 # ── Trainer construction ───────────────────────────────────────────────────────
 
+# Per-model correct EOS tokens (must exist in their vocab)
+EOS_TOKENS = {
+    "qwen":     "<|im_end|>",       # Qwen ChatML — this is the real turn-end token
+    "granite4": "<|end_of_text|>",  # Granite 4.0
+    "llama3":   "<|eot_id|>",       # Llama 3.x
+}
+
 def build_trainer(
     model,
     tokenizer,
     train_dataset: Dataset,
     val_dataset: Optional[Dataset],
     checkpoint_dir: str,
+    chat_template: str,
 ) -> SFTTrainer:
-    """Construct the SFTTrainer."""
 
     use_bf16 = torch.cuda.is_bf16_supported()
     use_fp16 = not use_bf16
     run_name = f"sc-finetune-{datetime.now().strftime('%Y%m%d_%H%M')}"
 
-    training_args = TrainingArguments(
+    eos = EOS_TOKENS[chat_template]
+    tokenizer.eos_token = eos
+    tokenizer.pad_token = eos
+
+    # Pre-tokenize datasets — required when skip_prepare_dataset=True
+    def tokenize(batch):
+        out = tokenizer(
+            batch["text"],
+            truncation=True,
+            max_length=MAX_SEQ_LENGTH,
+            padding=False,
+        )
+        out["labels"] = out["input_ids"].copy()
+        return out
+
+    train_dataset = train_dataset.map(
+        tokenize,
+        batched=True,
+        remove_columns=["text"],
+        desc="Tokenizing train dataset",
+    )
+    if val_dataset is not None:
+        val_dataset = val_dataset.map(
+            tokenize,
+            batched=True,
+            remove_columns=["text"],
+            desc="Tokenizing val dataset",
+        )
+
+    training_args = SFTConfig(
         output_dir                  = checkpoint_dir,
         run_name                    = run_name,
         per_device_train_batch_size = BATCH_SIZE,
@@ -276,19 +312,22 @@ def build_trainer(
         load_best_model_at_end      = bool(val_dataset),
         optim                       = "adamw_8bit",
         lr_scheduler_type           = "cosine",
-        report_to                   = "none",   # set to "wandb" to enable W&B
+        report_to                   = "none",
         seed                        = 42,
+        max_length                  = MAX_SEQ_LENGTH,
+        packing                     = False,
+        dataset_text_field          = "text",
+        dataset_kwargs              = {"skip_prepare_dataset": True},
+        eos_token                   = eos,
+        remove_unused_columns       = False,   # ← keep all columns during collation
     )
 
     trainer = SFTTrainer(
-        model              = model,
-        tokenizer          = tokenizer,
-        train_dataset      = train_dataset,
-        eval_dataset       = val_dataset,
-        dataset_text_field = "text",
-        max_seq_length     = MAX_SEQ_LENGTH,
-        packing            = False,   # disabled — contracts vary greatly in length
-        args               = training_args,
+        model            = model,
+        processing_class = tokenizer,
+        train_dataset    = train_dataset,
+        eval_dataset     = val_dataset,
+        args             = training_args,
     )
 
     return trainer
@@ -335,7 +374,8 @@ def run_single_model(
 
     # 3. Build trainer
     trainer = build_trainer(
-        model, tokenizer, train_dataset, val_dataset, checkpoint_dir
+        model, tokenizer, train_dataset, val_dataset, checkpoint_dir,
+        chat_template = cfg["chat_template"],
     )
 
     # 4. Train

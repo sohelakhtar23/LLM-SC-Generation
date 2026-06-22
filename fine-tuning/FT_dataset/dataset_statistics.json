@@ -1,38 +1,41 @@
 {
-  "timestamp": "2026-04-28T08:38:16.314345",
-  "total_examples": 329,
+  "timestamp": "2026-06-22T15:01:35.269979",
+  "total_examples": 312,
   "task_distribution": {
-    "generation": 117,
-    "compilation_repair": 75,
-    "vulnerability_repair": 137
+    "generation": 106,
+    "compilation_repair": 85,
+    "vulnerability_repair": 121
   },
   "model_distribution": {
-    "gpt-oss:20b": 69,
-    "gemma3:27b": 77,
-    "mistral-small:24b": 59,
-    "llama3.1:8b": 34,
-    "qwen2.5-coder:7b": 49,
-    "deepseek-coder:6.7b": 41
+    "deepseek-coder:6.7b": 28,
+    "granite4.1:8b": 21,
+    "llama3.1:8b": 28,
+    "ministral-3:8b": 33,
+    "qwen2.5-coder:7b": 31,
+    "qwen3:8b": 39,
+    "gemma3:27b": 48,
+    "gpt-oss:20b": 48,
+    "mistral-small:24b": 36
   },
   "collection_stats": {
     "generation": {
-      "total": 480,
-      "high_quality": 117,
-      "used": 117
+      "total": 450,
+      "high_quality": 106,
+      "used": 106
     },
     "compilation_repair": {
-      "total": 513,
-      "high_quality": 141,
-      "used": 75
+      "total": 534,
+      "high_quality": 171,
+      "used": 85
     },
     "vulnerability_repair": {
-      "total": 576,
-      "high_quality": 243,
-      "used": 137
+      "total": 498,
+      "high_quality": 241,
+      "used": 121
     }
   },
   "quality_statistics": {
-    "mean_quality_score": 0.98,
+    "mean_quality_score": 0.979,
     "min_quality_score": 0.74,
     "max_quality_score": 1.0
   },
