@@ -14,24 +14,24 @@ from datetime import datetime
 NUM_ITERATIONS = 5
 # MODELS = [
 #     "deepseek-coder:6.7b",
-#     # "deepseek-r1:8b",
 #     "granite4.1:8b",
-#     "lfm2.5:8b",
 #     "llama3.1:8b",
 #     "ministral-3:8b",
 #     "qwen2.5-coder:7b",
 #     "qwen3:8b",
-#     "starcoder2:7b",
 # ]
 MODELS = [
     "gemma3:27b",
     "gpt-oss:20b",
     "mistral-small:24b",
-    # "llama3.1:8b",
-    # "qwen2.5-coder:7b",
-    # "deepseek-coder:6.7b"
-    # "qwen2.5-coder:1.5b-instruct",
-    # "smart-contract-model-FT:latest"
+    # "gemma3:1b",
+    # "granite4:1b",
+    # "llama3.2:1b",
+    # "qwen2.5-coder:0.5b",
+    # "FT-Gemma-3-1B:latest",
+    # "FT-Granite-4.0-1B:latest",
+    # "FT-Llama-3.2-1B:latest",
+    # "FT-Qwen2.5-Coder-0.5B:latest",
 ]
 OLLAMA_TIMEOUT = 180
 MAX_RETRIES = 2

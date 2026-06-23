@@ -27,6 +27,7 @@ MODELS = {
     "qwen":    {"short_name": "Qwen2.5-Coder-0.5B"},
     "granite": {"short_name": "Granite-4.0-1B"},
     "llama":   {"short_name": "Llama-3.2-1B"},
+    "gemma3":  {"short_name": "Gemma-3-1B"},
 }
 
 
